@@ -205,26 +205,59 @@ elif st.session_state.current_page == "Settings":
 
     st.divider()
 
-    # AI Coach
-    st.subheader("🤖 AI Coach")
-    st.write("Talk to the coach to update tone, services, or response behavior.")
+   # ============================================================
+# AI COACH CHATBOX (Updated with Structured JSON)
+# ============================================================
+st.subheader("🤖 AI Coach")
+st.write("Talk to the coach to update tone, services, or response behavior.")
 
-    for message in st.session_state.coach_messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+for message in st.session_state.coach_messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-    if prompt := st.chat_input("Tell the AI Coach what to change..."):
-        st.session_state.coach_messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+if prompt := st.chat_input("Tell the AI Coach what to change..."):
+    st.session_state.coach_messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                chain = ai_coach_prompt | llm_coach | StrOutputParser()
-                response = chain.invoke({"user_message": prompt})
-                st.markdown(response)
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            from langchain_core.output_parsers import JsonOutputParser
 
-        st.session_state.coach_messages.append({"role": "assistant", "content": response})
+            chain = ai_coach_prompt | llm_coach | JsonOutputParser()
+            result = chain.invoke({"user_message": prompt})
+
+            message = result.get("message", "Done.")
+            st.markdown(message)
+
+            # === Apply Changes from JSON ===
+            action = result.get("action")
+            details = result.get("details", {})
+            current_settings = st.session_state.settings
+            changes_made = False
+
+            if action == "update_tone" and "tone" in details:
+                current_settings["tone"] = details["tone"]
+                changes_made = True
+
+            elif action == "toggle_service" and "service" in details:
+                service_name = details["service"]
+                enabled = details.get("enabled", True)
+                for category, services in current_settings.get("services", {}).items():
+                    if service_name in services:
+                        current_settings["services"][category][service_name] = enabled
+                        changes_made = True
+                        break
+
+            elif action == "update_unavailable_message" and "message" in details:
+                current_settings["unavailable_service_message"] = details["message"]
+                changes_made = True
+
+            if changes_made:
+                st.session_state.settings = current_settings
+                st.success("Coach updated your settings. Click **Save Changes** to apply them permanently.")
+
+    st.session_state.coach_messages.append({"role": "assistant", "content": message})
 
 # Footer
 st.divider()
