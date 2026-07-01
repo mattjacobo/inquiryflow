@@ -1,1 +1,9 @@
-
+streamlit
+langchain
+langchain-openai
+langchain-community
+langgraph
+supabase
+python-dotenv
+PyPDF2
+tiktoken
