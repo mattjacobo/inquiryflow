@@ -1,1 +1,18 @@
+# Virtual Environment
+venv/
+__pycache__/
+*.pyc
 
+# Environment variables (secrets)
+.env
+
+# Streamlit cache
+.streamlit/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Python cache
+.pytest_cache/
+.mypy_cache/
