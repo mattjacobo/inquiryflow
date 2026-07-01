@@ -74,7 +74,7 @@ Please draft the first response now.""")
 
 
 # ============================================================
-# AI COACH PROMPT (Structured JSON - Final Fixed Version)
+# AI COACH PROMPT (Fixed for Jinja2)
 # ============================================================
 ai_coach_prompt = ChatPromptTemplate.from_messages([
     ("system", """You are a decisive and helpful AI Configuration Assistant for InquiryFlow.
@@ -83,11 +83,9 @@ Your job is to help the business owner configure how the AI responds to customer
 
 You MUST respond in the following JSON format:
 
-{{
-  "action": "update_tone" or "toggle_service" or "update_unavailable_message" or "none",
-  "details": {{}},
-  "message": "A clear message to the user"
-}}
+{ "action": "update_tone" or "toggle_service" or "update_unavailable_message" or "none",
+  "details": { },
+  "message": "A clear message to the user" }
 
 Rules:
 - Use "update_tone" when the user wants to change the communication tone.
