@@ -82,7 +82,7 @@ def save_settings(settings: dict):
 
 
 def load_settings():
-    """Load settings from Supabase and merge with defaults for reliability."""
+    """Load settings and always return a complete, valid structure."""
     defaults = get_default_settings()
 
     if not supabase:
@@ -94,23 +94,25 @@ def load_settings():
         if response.data:
             stored = response.data[0].get("data", {})
             
-            # Merge stored data with defaults (stored values take priority)
-            merged = {**defaults, **stored}
+            # Deep merge - always start from defaults
+            merged = json.loads(json.dumps(defaults))  # Deep copy
             
-            # Ensure services structure is complete
-            if "services" in stored and isinstance(stored["services"], dict):
-                for category, default_services in defaults.get("services", {}).items():
-                    if category not in merged.get("services", {}):
-                        merged["services"][category] = default_services
-                    else:
-                        for service, default_value in default_services.items():
-                            if service not in merged["services"][category]:
-                                merged["services"][category][service] = default_value
+            # Override with stored values
+            if isinstance(stored, dict):
+                for key, value in stored.items():
+                    if key in merged:
+                        if isinstance(merged[key], dict) and isinstance(value, dict):
+                            merged[key].update(value)
+                        else:
+                            merged[key] = value
             
-            # Ensure unavailable_service_message exists
-            if "unavailable_service_message" not in merged:
+            # Final safety checks
+            if "unavailable_service_message" not in merged or not merged.get("unavailable_service_message"):
                 merged["unavailable_service_message"] = defaults["unavailable_service_message"]
-
+            
+            if "tone" not in merged or not merged.get("tone"):
+                merged["tone"] = defaults["tone"]
+            
             return merged
         
         return defaults
