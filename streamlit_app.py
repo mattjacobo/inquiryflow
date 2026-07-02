@@ -178,10 +178,78 @@ if st.session_state.current_page == "Dashboard":
         st.info("Paste an inquiry above and click **Process Inquiry →** to see the AI analysis and draft.")
 
 elif st.session_state.current_page == "Settings":
-    # ... (your Settings page code remains unchanged)
     st.subheader("⚙️ Settings & Maintenance")
     settings = st.session_state.settings
-    # ... rest of your settings code ...
+
+    # --- Tone & Communication Style ---
+    st.markdown("**Tone & Communication Style**")
+    settings["tone"] = st.text_area(
+        "How should the AI sound when responding?",
+        value=settings.get("tone", ""),
+        height=100,
+        placeholder="e.g. Friendly, professional, and concise. Use the customer's name when possible."
+    )
+
+    # --- Service Roster ---
+    st.markdown("**Service Roster**")
+    st.write("Check the services your shop offers. These are used by the AI when drafting responses.")
+
+    services = settings.get("services", {})
+
+    if not services:
+        st.warning("No services found yet.")
+        if st.button("Load Default Services", use_container_width=True):
+            settings["services"] = {
+                "Maintenance": {
+                    "Oil Change": True,
+                    "Brake Service": True,
+                    "Tire Rotation": True,
+                    "Battery Replacement": True,
+                },
+                "Repairs": {
+                    "Engine Repair": True,
+                    "Transmission Service": True,
+                    "Suspension Work": True,
+                },
+                "Diagnostics": {
+                    "Check Engine Light": True,
+                    "Electrical Diagnostics": True,
+                }
+            }
+            st.session_state.settings = settings
+            st.rerun()
+    else:
+        for category, sub_services in services.items():
+            st.markdown(f"**{category}**")
+            for service, enabled in list(sub_services.items()):
+                settings["services"][category][service] = st.checkbox(
+                    service,
+                    value=enabled,
+                    key=f"service_{category}_{service}"
+                )
+
+    st.divider()
+
+    # --- Save / Discard Buttons ---
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("💾 Save Changes", type="primary", use_container_width=True):
+            if save_settings(settings):
+                if regenerate_knowledge_base(settings):
+                    st.success("Settings saved and knowledge base regenerated!")
+                    st.session_state.settings = settings
+                else:
+                    st.warning("Settings saved, but knowledge base regeneration had some issues.")
+            else:
+                st.error("Failed to save settings to Supabase.")
+
+    with col2:
+        if st.button("Discard Changes", use_container_width=True):
+            st.session_state.settings = load_settings()
+            st.info("Changes discarded. Reloaded from database.")
+            st.rerun()
+
+    st.divider()
 
 # ============================================================
 # AI COACH CHATBOX
