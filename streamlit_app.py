@@ -183,19 +183,23 @@ elif st.session_state.current_page == "Settings":
             )
     
         # Save / Discard
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("💾 Save Changes", type="primary", use_container_width=True):
-                if save_settings(settings) and regenerate_knowledge_base(settings):
-                    st.success("Settings saved and knowledge base regenerated!")
-                    st.session_state.settings = settings
-                else:
-                    st.error("Failed to save settings.")
-    
-        with c2:
-            if st.button("Discard Changes", use_container_width=True):
-                st.session_state.settings = load_settings()
-                st.info("Changes discarded.")
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("💾 Save Changes", type="primary", use_container_width=True, key="save_settings_btn"):
+        if save_settings(settings):
+            if regenerate_knowledge_base(settings):
+                st.success("Settings saved and knowledge base regenerated!")
+                st.session_state.settings = settings
+            else:
+                st.warning("Settings saved, but knowledge base regeneration had issues.")
+        else:
+            st.error("Failed to save settings to Supabase.")
+
+with col2:
+    if st.button("Discard Changes", use_container_width=True, key="discard_settings_btn"):
+        st.session_state.settings = load_settings()
+        st.info("Changes discarded.")
     
         st.divider()
 
