@@ -82,7 +82,7 @@ def save_settings(settings: dict):
 
 
 def load_settings():
-    """Load settings from Supabase and merge with defaults to prevent structure errors."""
+    """Load settings and always merge with defaults to prevent missing fields."""
     defaults = get_default_settings()
 
     if not supabase:
@@ -90,24 +90,27 @@ def load_settings():
 
     try:
         response = supabase.table("app_settings").select("data").eq("id", 1).execute()
+        
         if response.data:
-            stored = response.data[0].get("data", {})
-            # Merge stored data with defaults (stored values take priority)
-            merged = {**defaults, **stored}
-
-            # Ensure nested services dict is complete
-            if "services" in stored and isinstance(stored["services"], dict):
-                for category, services in defaults["services"].items():
+            stored_data = response.data[0].get("data", {})
+            
+            # Deep merge: defaults first, then override with stored values
+            merged = {**defaults, **stored_data}
+            
+            # Ensure services structure is complete
+            if "services" in stored_data and isinstance(stored_data["services"], dict):
+                for category, default_services in defaults["services"].items():
                     if category not in merged["services"]:
-                        merged["services"][category] = services
+                        merged["services"][category] = default_services
                     else:
-                        for service, enabled in services.items():
+                        for service, default_enabled in default_services.items():
                             if service not in merged["services"][category]:
-                                merged["services"][category][service] = enabled
-
+                                merged["services"][category][service] = default_enabled
+            
             return merged
-
+        
         return defaults
+        
     except Exception as e:
         print(f"Error loading settings: {e}")
         return defaults
