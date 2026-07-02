@@ -54,20 +54,19 @@ def retrieve_context_node(state: InquiryState) -> dict:
 
 
 def draft_node(state: InquiryState, settings: dict = None) -> dict:
-    """
-    Role in bigger picture:
-    Produces the actual first message the customer will see (after human approval).
-    Now respects service availability from Settings.
-    """
     if settings is None:
         settings = {}
 
-    # Get enabled services as a clean list
     enabled_services = []
-    for category, services in settings.get("services", {}).items():
-        for service, enabled in services.items():
-            if enabled:
-                enabled_services.append(service)
+    services_data = settings.get("services", {})
+
+    # Extremely defensive loop
+    if isinstance(services_data, dict):
+        for category, sub_services in services_data.items():
+            if isinstance(sub_services, dict):
+                for service, enabled in sub_services.items():
+                    if enabled is True:
+                        enabled_services.append(str(service))
 
     unavailable_message = settings.get(
         "unavailable_service_message",
