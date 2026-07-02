@@ -26,10 +26,21 @@ if "settings" not in st.session_state:
 if "coach_messages" not in st.session_state:
     st.session_state.coach_messages = []
 # ============================================================
+def load_past_inquiries(limit=50):
+    """Load past inquiries for the Conversations tab."""
+    if not supabase:
+        return []
+
+    try:
+        result = supabase.table("inquiries").select("*").order("created_at", desc=True).limit(limit).execute()
+        return result.data if result.data else []
+    except Exception as e:
+        print(f"Error loading inquiries: {e}")
+        return []
 
 st.set_page_config(page_title="InquiryFlow — Phase 1.5", page_icon="🚗", layout="wide")
 
-st.title("InquiryFlow — Phase 1.5 MVP")
+st.title("InquiryFlow — Phase 2.0 MVP")
 st.caption("AI drafts. You approve. Customers get fast, professional responses.")
 
 # ====================== SIDEBAR NAVIGATION ======================
