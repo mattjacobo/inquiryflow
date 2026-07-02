@@ -156,8 +156,18 @@ if st.session_state.current_page == "Dashboard":
 elif st.session_state.current_page == "Conversations":
     st.subheader("📋 Conversations History")
 
-    # TODO: Implement load_past_inquiries()
-    st.info("Conversations tab coming soon. Process some inquiries on the Dashboard first.")
+    past_inquiries = load_past_inquiries()
+
+    if not past_inquiries:
+        st.info("No past inquiries yet. Process and approve some inquiries on the Dashboard tab.")
+    else:
+        for inquiry in past_inquiries:
+            with st.expander(f"#{inquiry['inquiry_number']} - {inquiry.get('customer_name', 'Unknown')}"):
+                st.write(f"**Status**: {inquiry.get('status', 'unknown')}")
+                st.write(f"**Original Inquiry**: {inquiry.get('original_text', '')[:200]}...")
+                if inquiry.get('final_response'):
+                    st.write(f"**Final Response**: {inquiry.get('final_response')[:300]}...")
+                st.caption(f"Created: {inquiry.get('created_at')}")
 
 elif st.session_state.current_page == "Settings":
     st.subheader("⚙️ Settings & Maintenance")
