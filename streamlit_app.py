@@ -225,15 +225,24 @@ elif st.session_state.current_page == "Conversations":
 
     if not past_inquiries:
         st.info("No past inquiries yet. Process and approve some inquiries on the Dashboard tab.")
-        st.write("Check Supabase 'inquiries' table to see if data is being saved.")
     else:
+        # Group by customer_identifier
+        from collections import defaultdict
+        grouped = defaultdict(list)
+
         for inquiry in past_inquiries:
-            with st.expander(f"#{inquiry.get('inquiry_number', 'Unknown')} - {inquiry.get('customer_name', 'Unknown')}"):
-                st.write(f"**Status**: {inquiry.get('status', 'unknown')}")
-                st.write(f"**Original**: {inquiry.get('original_text', '')[:150]}...")
-                if inquiry.get('final_response'):
-                    st.write(f"**Final Response**: {inquiry.get('final_response')[:300]}...")
-                st.caption(f"Created: {inquiry.get('created_at')}")
+            key = inquiry.get("customer_identifier") or inquiry.get("customer_name") or "Unknown Customer"
+            grouped[key].append(inquiry)
+
+        for customer_key, conversations in grouped.items():
+            with st.expander(f"👤 {customer_key} ({len(conversations)} inquiries)"):
+                for inquiry in conversations:
+                    st.write(f"**{inquiry.get('inquiry_number')}** - {inquiry.get('status', 'unknown')}")
+                    st.write(f"Original: {inquiry.get('original_text', '')[:150]}...")
+                    if inquiry.get('final_response'):
+                        st.write(f"Response: {inquiry.get('final_response')[:200]}...")
+                    st.caption(f"Created: {inquiry.get('created_at')}")
+                    st.divider()
 
 elif st.session_state.current_page == "Settings":
     st.subheader("⚙️ Settings & Maintenance")
