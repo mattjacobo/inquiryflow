@@ -54,6 +54,7 @@ def save_inquiry(
     original_text: str, 
     customer_name: str = None, 
     customer_identifier: str = None,
+    channel: str = "Other",                  # New
     summary: str = None, 
     ai_draft: str = None, 
     final_response: str = None, 
@@ -70,7 +71,8 @@ def save_inquiry(
         data = {
             "inquiry_number": inquiry_number,
             "customer_name": customer_name,
-            "customer_identifier": customer_identifier,   # ← Key for grouping
+            "customer_identifier": customer_identifier,
+            "channel": channel,                     # New
             "original_text": original_text,
             "ai_summary": summary,
             "ai_draft": ai_draft,
@@ -78,7 +80,7 @@ def save_inquiry(
             "status": status
         }
         result = supabase.table("inquiries").insert(data).execute()
-        st.success(f"Inquiry saved: {inquiry_number}")
+        st.success(f"Inquiry saved: {inquiry_number} ({channel})")
         return result
     except Exception as e:
         st.error(f"Failed to save inquiry: {str(e)}")
