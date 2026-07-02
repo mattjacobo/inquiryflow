@@ -208,13 +208,16 @@ elif st.session_state.current_page == "Conversations":
 
     past_inquiries = load_past_inquiries()
 
+    st.write(f"Found {len(past_inquiries)} past inquiries")  # Debug line
+
     if not past_inquiries:
         st.info("No past inquiries yet. Process and approve some inquiries on the Dashboard tab.")
+        st.write("Check Supabase 'inquiries' table to see if data is being saved.")
     else:
         for inquiry in past_inquiries:
-            with st.expander(f"#{inquiry['inquiry_number']} - {inquiry.get('customer_name', 'Unknown')}"):
+            with st.expander(f"#{inquiry.get('inquiry_number', 'Unknown')} - {inquiry.get('customer_name', 'Unknown')}"):
                 st.write(f"**Status**: {inquiry.get('status', 'unknown')}")
-                st.write(f"**Original Inquiry**: {inquiry.get('original_text', '')[:200]}...")
+                st.write(f"**Original**: {inquiry.get('original_text', '')[:150]}...")
                 if inquiry.get('final_response'):
                     st.write(f"**Final Response**: {inquiry.get('final_response')[:300]}...")
                 st.caption(f"Created: {inquiry.get('created_at')}")
