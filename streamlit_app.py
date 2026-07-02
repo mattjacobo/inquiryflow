@@ -36,7 +36,7 @@ st.caption("AI drafts. You approve. Customers get fast, professional responses."
 with st.sidebar:
     st.header("Navigation")
 
-    pages = ["Dashboard", "Settings"]
+    pages = ["Dashboard", "Conversations", "Settings"]
     st.session_state.current_page = st.radio(
         "Go to",
         pages,
@@ -202,6 +202,23 @@ with col2:
         st.info("Changes discarded.")
     
         st.divider()
+
+elif st.session_state.current_page == "Conversations":
+    st.subheader("📋 Conversations History")
+
+    # Fetch past inquiries (we'll implement the function next)
+    past_inquiries = load_past_inquiries()
+
+    if not past_inquiries:
+        st.info("No past inquiries yet. Process some inquiries on the Dashboard tab.")
+    else:
+        for inquiry in past_inquiries:
+            with st.expander(f"{inquiry['inquiry_number']} - {inquiry['customer_name'] or 'Unknown'}"):
+                st.write(f"**Status**: {inquiry['status']}")
+                st.write(f"**Original**: {inquiry['original_text'][:150]}...")
+                if inquiry['final_response']:
+                    st.write(f"**Final Response**: {inquiry['final_response'][:200]}...")
+                st.caption(f"Created: {inquiry['created_at']}")
 
 # ============================================================
 # AI COACH CHATBOX (Improved Hybrid Version)
