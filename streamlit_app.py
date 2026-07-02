@@ -38,6 +38,22 @@ if "settings" not in st.session_state:
 if "coach_messages" not in st.session_state:
     st.session_state.coach_messages = []
 # ============================================================
+def auto_detect_channel(identifier: str) -> str:
+    """Auto-detect channel based on identifier format."""
+    if not identifier:
+        return "Other"
+    
+    identifier = identifier.strip().lower()
+    
+    if identifier.startswith('+') or identifier.replace(' ', '').replace('-', '').isdigit():
+        return "SMS/Text"
+    elif '@' in identifier:
+        return "Email"
+    elif any(word in identifier for word in ['instagram', 'ig', 'dm', '@']):
+        return "Instagram DM"
+    else:
+        return "Other"
+
 def load_past_inquiries(limit=50):
     """Load past inquiries for the Conversations tab."""
     if not supabase:
