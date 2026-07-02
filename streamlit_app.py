@@ -159,14 +159,28 @@ elif st.session_state.current_page == "Settings":
         height=100
     )
 
-    # Service Roster
-    st.markdown("**Service Roster**")
-    for category, sub_services in settings["services"].items():
-        st.markdown(f"**{category}**")
-        for service, enabled in sub_services.items():
-            settings["services"][category][service] = st.checkbox(
-                service, value=enabled, key=f"svc_{category}_{service}"
-            )
+# --- Service Roster (Safer Version) ---
+st.markdown("**Service Roster**")
+st.write("Check the services your shop offers.")
+
+services_data = settings.get("services", {})
+
+if not isinstance(services_data, dict):
+    st.error("Settings data is corrupted. Resetting to default services.")
+    settings["services"] = get_default_settings()["services"]
+    services_data = settings["services"]
+
+for category, sub_services in services_data.items():
+    if not isinstance(sub_services, dict):
+        continue  # skip bad data
+
+    st.markdown(f"**{category}**")
+    for service, enabled in sub_services.items():
+        settings["services"][category][service] = st.checkbox(
+            service,
+            value=bool(enabled),
+            key=f"service_{category}_{service}"
+        )
 
     # Save / Discard
     c1, c2 = st.columns(2)
