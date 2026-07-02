@@ -1,9 +1,10 @@
 """
-InquiryFlow - RAG Utilities
-Handles document processing, embedding, and retrieval from Supabase pgvector.
+InquiryFlow - RAG Utilities for Stage 1.5
+Handles uploading, chunking, embedding, and storing knowledge base documents in Supabase.
 """
 
 import os
+from typing import List
 from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -13,62 +14,82 @@ from supabase import create_client, Client
 
 load_dotenv()
 
+# Supabase setup
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 if SUPABASE_URL and SUPABASE_KEY:
-    supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 else:
-    supabase_client = None
+    supabase = None
 
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
 
-def process_and_store_documents(file_paths):
-    """Process uploaded documents and store embeddings in Supabase."""
-    if not supabase_client:
-        return 0
+def get_vectorstore():
+    """Returns a SupabaseVectorStore instance if credentials are available."""
+    if not supabase:
+        return None
+    return SupabaseVectorStore(
+        client=supabase,
+        embedding=embeddings,
+        table_name="knowledge_chunks",
+        query_name="match_knowledge_chunks",  # You may need to create this function in Supabase later
+    )
 
-    all_chunks = []
+
+def process_and_store_documents(file_paths: List[str], metadata: dict = None):
+    """
+    Process uploaded files, chunk them, embed, and store in Supabase.
+    Returns number of chunks stored.
+    """
+    if not supabase:
+        raise ValueError("Supabase credentials not found in .env")
+
+    docs = []
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
-        chunk_overlap=200
+        chunk_overlap=200,
+        length_function=len,
     )
 
     for file_path in file_paths:
-        if file_path.endswith(".pdf"):
+        if file_path.lower().endswith(".pdf"):
             loader = PyPDFLoader(file_path)
         else:
             loader = TextLoader(file_path, encoding="utf-8")
 
-        docs = loader.load()
-        chunks = text_splitter.split_documents(docs)
-        all_chunks.extend(chunks)
+        loaded_docs = loader.load()
+        for doc in loaded_docs:
+            if metadata:
+                doc.metadata.update(metadata)
+        chunks = text_splitter.split_documents(loaded_docs)
+        docs.extend(chunks)
 
-    vector_store = SupabaseVectorStore.from_documents(
-        all_chunks,
-        embeddings,
-        client=supabase_client,
-        table_name="knowledge_chunks",
-        query_name="match_documents"
-    )
+    if not docs:
+        return 0
 
-    return len(all_chunks)
+    vectorstore = get_vectorstore()
+    if vectorstore:
+        vectorstore.add_documents(docs)
+        return len(docs)
+    else:
+        return 0
 
 
 def retrieve_context(query: str, k: int = 5) -> str:
-    """Retrieve relevant context from Supabase vector store."""
-    if not supabase_client:
+    """
+    Retrieve relevant context from Supabase vector store.
+    Falls back to empty string if not available.
+    """
+    vectorstore = get_vectorstore()
+    if not vectorstore:
         return ""
 
-    vector_store = SupabaseVectorStore(
-        client=supabase_client,
-        embedding=embeddings,
-        table_name="knowledge_chunks",
-        query_name="match_documents"
-    )
-
-    docs = vector_store.similarity_search(query, k=k)
-    context = "\n\n".join([doc.page_content for doc in docs])
-
-    return context
+    try:
+        docs = vectorstore.similarity_search(query, k=k)
+        context = "\n\n".join([doc.page_content for doc in docs])
+        return context
+    except Exception as e:
+        print(f"RAG retrieval error: {e}")
+        return ""

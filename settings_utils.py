@@ -55,12 +55,13 @@ def get_default_settings():
                 "Suspension Upgrades": False,
                 "Custom Fabrication": False,
             },
-        },
-        "unavailable_service_message": (
+            "unavailable_service_message": (
             "I'm sorry, but it looks like we currently do not offer that service. "
             "However, I will check with the boss for further confirmation. "
             "I appreciate your patience!"
         )
+        },
+        "common_questions": {}  # service_name: ["question1", "question2"]
     }
 
 

@@ -1,69 +1,41 @@
 """
-InquiryFlow Phase 1 — Streamlit Dashboard
-... (your original docstring)
+InquiryFlow Phase 1.5 — Streamlit Dashboard
 """
+
 import streamlit as st
-from datetime import datetime
-from typing import Optional, Any
-import os
+from typing import Optional
+
 from workflow import process_inquiry, InquiryState
 from dotenv import load_dotenv
 from rag_utils import process_and_store_documents
 from settings_utils import load_settings, save_settings, regenerate_knowledge_base
-from prompts import classifier_prompt, drafter_prompt, ai_coach_prompt
+from prompts import drafter_prompt, ai_coach_prompt
 import tempfile
+import os
+
 from langchain_openai import ChatOpenAI
-from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
+from langchain_core.output_parsers import StrOutputParser
 
 load_dotenv()
 
-
-def safe_str(val: Any, default: str = "—") -> str:
-    """Safely convert any value to a clean title-cased string."""
-    if val is None or val == "":
-        return default
-    try:
-        return str(val).strip().title()
-    except Exception:
-        return default
-
-
-def get_field(obj: Any, key: str, default: str = "—") -> str:
-    """Safely get a field from dict, Pydantic model, or dataclass."""
-    if obj is None:
-        return default
-    if isinstance(obj, dict):
-        val = obj.get(key, default)
-    else:
-        # Works for Pydantic models and dataclasses
-        val = getattr(obj, key, default)
-    return safe_str(val)
-
-
-# Initialize session state
+# ====================== SESSION STATE ======================
 if "current_page" not in st.session_state:
     st.session_state.current_page = "Dashboard"
 if "settings" not in st.session_state:
     st.session_state.settings = load_settings()
 if "coach_messages" not in st.session_state:
     st.session_state.coach_messages = []
-if "current_result" not in st.session_state:
-    st.session_state.current_result = None
+# ============================================================
 
-st.set_page_config(
-    page_title="InquiryFlow — Phase 1",
-    page_icon="🚗",
-    layout="wide"
-)
+st.set_page_config(page_title="InquiryFlow — Phase 1.5", page_icon="🚗", layout="wide")
 
 st.title("InquiryFlow — Phase 1.5 MVP")
 st.caption("AI drafts. You approve. Customers get fast, professional responses.")
 
-# ============================================================
-# SIDEBAR NAVIGATION
-# ============================================================
+# ====================== SIDEBAR NAVIGATION ======================
 with st.sidebar:
     st.header("Navigation")
+
     pages = ["Dashboard", "Settings"]
     st.session_state.current_page = st.radio(
         "Go to",
@@ -71,17 +43,19 @@ with st.sidebar:
         index=pages.index(st.session_state.current_page),
         label_visibility="collapsed"
     )
+
     st.divider()
     st.caption("Phase 1.5 • Human-in-the-loop by design • Built for maintainability")
+# ============================================================
 
 # AI Coach LLM
 llm_coach = ChatOpenAI(model="gpt-4o", temperature=0.3)
 
-# ============================================================
-# MAIN CONTENT AREA
-# ============================================================
+# ====================== MAIN CONTENT ======================
 if st.session_state.current_page == "Dashboard":
+    # ------------------ DASHBOARD ------------------
     st.subheader("1. New Inquiry")
+
     col1, col2 = st.columns([3, 1])
     with col1:
         inquiry_text = st.text_area(
@@ -94,201 +68,188 @@ if st.session_state.current_page == "Dashboard":
         customer_name = st.text_input("Customer name (optional)", value="")
         process_btn = st.button("Process Inquiry →", type="primary", use_container_width=True)
 
-    # Processing
+    # ============================================================
+    # PROCESSING + RESULTS
+    # ============================================================
     if process_btn and inquiry_text.strip():
         with st.spinner("Analyzing inquiry and drafting response..."):
-            try:
-                result: InquiryState = process_inquiry(
-                    original_text=inquiry_text.strip(),
-                    customer_name=customer_name.strip() or None
-                )
-                st.session_state.current_result = result
-                st.session_state.sample_inquiry = ""
-            except Exception as e:
-                st.error(f"Error processing inquiry: {e}")
-                st.session_state.current_result = None
-
-    # Results Display
-    result = st.session_state.get("current_result")
-
-    if result:
-        st.divider()
-        st.subheader("2. AI Analysis & Draft (Ready for your review)")
-
-        # === SAFE METRICS ROW ===
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Customer Type", get_field(result, "customer_type"))
-        m2.metric("Category", get_field(result, "category").replace("_", " "))
-        m3.metric("Urgency", get_field(result, "urgency"))
-        m4.metric("Status", get_field(result, "status").replace("_", " "))
-
-        st.divider()
-
-        left, right = st.columns([1, 1.3])
-        with left:
-            st.markdown("**AI Summary** (for your quick understanding)")
-            st.info(get_field(result, "summary", "No summary generated."))
-
-            with st.expander("View grounding context (what AI was allowed to use)"):
-                st.text(get_field(result, "retrieved_context", "No context retrieved."))
-
-        with right:
-            st.markdown("**Draft Response** (edit as needed)")
-            current_draft = get_field(result, "draft_response", "")
-            edited_draft = st.text_area(
-                "Editable draft — this is what the customer will see after you approve",
-                value=current_draft,
-                height=220,
-                key="draft_editor"
+            result: InquiryState = process_inquiry(
+                original_text=inquiry_text.strip(),
+                customer_name=customer_name.strip() or None,
+                settings=st.session_state.settings          # ← Pass current settings
             )
-            if edited_draft != current_draft:
-                if isinstance(result, dict):
-                    result["human_edited_draft"] = edited_draft
-                else:
-                    result.human_edited_draft = edited_draft
-                st.session_state.current_result = result
+            st.session_state.current_result = result
+            st.session_state.sample_inquiry = ""  # clear sample after use
 
-        st.divider()
+        # Show results
+        if "current_result" in st.session_state:
+            result = st.session_state.current_result
 
-        # === ACTION BUTTONS ===
-        btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 2])
+            st.divider()
+            st.subheader("AI Analysis & Draft")
 
-        with btn_col1:
-            if st.button("✅ Approve & Log", type="primary", use_container_width=True):
-                final_text = st.session_state.get("draft_editor", edited_draft)
-                st.success("Response approved and logged (simulated in Phase 1).")
-                st.balloons()
-                with st.expander("What will be sent to customer (final version)"):
-                    st.code(final_text, language="text")
+            # Clean Metrics
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Customer Type", result.get("customer_type", "—").title())
+            with col2:
+                st.metric("Category", result.get("category", "—").replace("_", " ").title())
+            with col3:
+                urgency = result.get("urgency", "medium").lower()
+                emoji = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(urgency, "⚪")
+                st.metric("Urgency", f"{emoji} {urgency.title()}")
+            with col4:
+                st.metric("Status", result.get("status", "pending_review").replace("_", " ").title())
 
-                # Clear result for next inquiry
-                if st.button("Process Another Inquiry", use_container_width=True):
-                    st.session_state.current_result = None
-                    st.rerun()
+            st.divider()
 
-        with btn_col2:
-            if st.button("Request More Info from Customer", use_container_width=True):
-                st.info("This would trigger a follow-up message workflow (Phase 2 feature).")
+            # Summary + Draft
+            left, right = st.columns([1, 1.2])
+            with left:
+                st.markdown("**AI Summary**")
+                st.info(result.get("summary", "No summary generated."))
+                with st.expander("🔍 View Retrieved Context"):
+                    st.text(result.get("retrieved_context", "No context retrieved."))
 
-        with btn_col3:
-            st.caption("All actions are logged for audit and continuous improvement. "
-                       "In production this writes to Supabase with full traceability.")
+            with right:
+                st.markdown("**Draft Response** (edit before approving)")
+                current_draft = result.get("draft_response", "")
+                edited_draft = st.text_area(
+                    "Editable draft",
+                    value=current_draft,
+                    height=200,
+                    key="draft_editor"
+                )
+                if edited_draft != current_draft:
+                    st.session_state.current_result["human_edited_draft"] = edited_draft
 
-    else:
-        st.info("Paste an inquiry above and click **Process Inquiry →** to see the AI analysis and draft.")
+            st.divider()
+
+            # Action Buttons
+            b1, b2, b3 = st.columns([1.2, 1.2, 2])
+            with b1:
+                if st.button("✅ Approve & Log", type="primary", use_container_width=True):
+                    final_text = st.session_state.get("draft_editor", edited_draft)
+                    st.success("Response approved and logged (simulated).")
+                    st.balloons()
+                    with st.expander("What will be sent to customer"):
+                        st.code(final_text)
+                    if st.button("Process Another Inquiry"):
+                        del st.session_state.current_result
+                        st.rerun()
+
+            with b2:
+                if st.button("Request More Info", use_container_width=True):
+                    st.info("Follow-up workflow (Phase 2)")
+
+            with b3:
+                st.caption("All actions are logged. In production this writes to Supabase.")
 
 elif st.session_state.current_page == "Settings":
+    # ------------------ SETTINGS ------------------
     st.subheader("⚙️ Settings & Maintenance")
+
     settings = st.session_state.settings
 
-    # --- Tone & Communication Style ---
+    # Tone
     st.markdown("**Tone & Communication Style**")
     settings["tone"] = st.text_area(
-        "How should the AI sound when responding?",
+        "How should the AI sound?",
         value=settings.get("tone", ""),
-        height=100,
-        placeholder="e.g. Friendly, professional, and concise. Use the customer's name when possible."
+        height=100
     )
 
-    # --- Service Roster ---
+    # Service Roster
     st.markdown("**Service Roster**")
-    st.write("Check the services your shop offers. These are used by the AI when drafting responses.")
+    for category, sub_services in settings["services"].items():
+        st.markdown(f"**{category}**")
+        for service, enabled in sub_services.items():
+            settings["services"][category][service] = st.checkbox(
+                service, value=enabled, key=f"svc_{category}_{service}"
+            )
 
-    services = settings.get("services", {})
-
-    if not services:
-        st.warning("No services found yet.")
-        if st.button("Load Default Services", use_container_width=True):
-            settings["services"] = {
-                "Maintenance": {
-                    "Oil Change": True,
-                    "Brake Service": True,
-                    "Tire Rotation": True,
-                    "Battery Replacement": True,
-                },
-                "Repairs": {
-                    "Engine Repair": True,
-                    "Transmission Service": True,
-                    "Suspension Work": True,
-                },
-                "Diagnostics": {
-                    "Check Engine Light": True,
-                    "Electrical Diagnostics": True,
-                }
-            }
-            st.session_state.settings = settings
-            st.rerun()
-    else:
-        for category, sub_services in services.items():
-            st.markdown(f"**{category}**")
-            for service, enabled in list(sub_services.items()):
-                settings["services"][category][service] = st.checkbox(
-                    service,
-                    value=enabled,
-                    key=f"service_{category}_{service}"
-                )
-
-    st.divider()
-
-    # --- Save / Discard Buttons ---
-    col1, col2 = st.columns(2)
-    with col1:
+    # Save / Discard
+    c1, c2 = st.columns(2)
+    with c1:
         if st.button("💾 Save Changes", type="primary", use_container_width=True):
-            if save_settings(settings):
-                if regenerate_knowledge_base(settings):
-                    st.success("Settings saved and knowledge base regenerated!")
-                    st.session_state.settings = settings
-                else:
-                    st.warning("Settings saved, but knowledge base regeneration had some issues.")
+            if save_settings(settings) and regenerate_knowledge_base(settings):
+                st.success("Settings saved and knowledge base regenerated!")
+                st.session_state.settings = settings
             else:
-                st.error("Failed to save settings to Supabase.")
+                st.error("Failed to save settings.")
 
-    with col2:
+    with c2:
         if st.button("Discard Changes", use_container_width=True):
             st.session_state.settings = load_settings()
-            st.info("Changes discarded. Reloaded from database.")
-            st.rerun()
+            st.info("Changes discarded.")
 
     st.divider()
 
-langchain_core.exceptions.OutputParserException: This app has encountered an error. The original error message is redacted to prevent data leaks. Full error details have been recorded in the logs (if you're on Streamlit Cloud, click on 'Manage app' in the lower right of your app).
-Traceback:
-File "/mount/src/inquiryflow/streamlit_app.py", line 272, in <module>
-    result = chain.invoke({"user_message": prompt})
-File "/home/adminuser/venv/lib/python3.14/site-packages/langchain_core/runnables/base.py", line 3444, in invoke
-    input_ = context.run(step.invoke, input_, config)
-File "/home/adminuser/venv/lib/python3.14/site-packages/langchain_core/output_parsers/base.py", line 211, in invoke
-    return self._call_with_config(
-           ~~~~~~~~~~~~~~~~~~~~~~^
-        lambda inner_input: self.parse_result(
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    ...<4 lines>...
-        run_type="parser",
-        ^^^^^^^^^^^^^^^^^^
-    )
-    ^
-File "/home/adminuser/venv/lib/python3.14/site-packages/langchain_core/runnables/base.py", line 2289, in _call_with_config
-    context.run(
-    ~~~~~~~~~~~^
-        call_func_with_variable_args,  # type: ignore[arg-type]
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    ...<4 lines>...
-        **kwargs,
-        ^^^^^^^^^
-    ),
-    ^
-File "/home/adminuser/venv/lib/python3.14/site-packages/langchain_core/runnables/config.py", line 526, in call_func_with_variable_args
-    return func(input, **kwargs)  # type: ignore[call-arg]
-File "/home/adminuser/venv/lib/python3.14/site-packages/langchain_core/output_parsers/base.py", line 212, in <lambda>
-    lambda inner_input: self.parse_result(
-                        ~~~~~~~~~~~~~~~~~^
-        [ChatGeneration(message=inner_input)]
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    ),
-    ^
-File "/home/adminuser/venv/lib/python3.14/site-packages/langchain_core/output_parsers/json.py", line 91, in parse_result
-    raise OutputParserException(msg, llm_output=text) from e
+# ============================================================
+# AI COACH CHATBOX (Improved Hybrid Version)
+# ============================================================
+st.subheader("🤖 AI Coach")
+st.write("Talk to the coach to update tone, services, or response behavior.")
 
-# Footer
+for message in st.session_state.coach_messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+if prompt := st.chat_input("Tell the AI Coach what to change..."):
+    st.session_state.coach_messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            chain = ai_coach_prompt | llm_coach | StrOutputParser()
+            response = chain.invoke({"user_message": prompt})
+            st.markdown(response)
+
+            # === Lightweight Change Detection ===
+            changes_made = False
+            lower_prompt = prompt.lower()
+            current_settings = st.session_state.settings
+
+            # Tone
+            if any(word in lower_prompt for word in ["tone", "sound"]):
+                if any(word in lower_prompt for word in ["friendly", "warm"]):
+                    current_settings["tone"] = "Friendly, warm, and approachable."
+                    changes_made = True
+                elif any(word in lower_prompt for word in ["professional", "formal"]):
+                    current_settings["tone"] = "Professional, clear, and respectful."
+                    changes_made = True
+
+            # Services
+            for category, services in current_settings.get("services", {}).items():
+                for service in services:
+                    if service.lower() in lower_prompt:
+                        if any(w in lower_prompt for w in ["add", "enable", "turn on"]):
+                            current_settings["services"][category][service] = True
+                            changes_made = True
+                        elif any(w in lower_prompt for w in ["remove", "disable", "turn off"]):
+                            current_settings["services"][category][service] = False
+                            changes_made = True
+
+            # Unavailable service message
+            if any(phrase in lower_prompt for phrase in ["not offered", "not available", "unavailable", "check with the boss"]):
+                if '"' in prompt:
+                    import re
+                    match = re.search(r'"([^"]*)"', prompt)
+                    if match:
+                        current_settings["unavailable_service_message"] = match.group(1)
+                        changes_made = True
+
+            if changes_made:
+                st.session_state.settings = current_settings
+                st.success("Coach updated your settings. Click **Save Changes** to apply them permanently.")
+
+    st.session_state.coach_messages.append({"role": "assistant", "content": response})
+ 
+    if st.button("Clear Coach Chat"):
+        st.session_state.coach_messages = []
+        st.rerun()
+
+# ====================== FOOTER ======================
 st.divider()
-st.caption("Phase 1.5 • Human-in-the-loop by design • Built for maintainability")
+st.caption("Phase 1.5 • Real RAG + Structured Settings + AI Coach active")

@@ -1,9 +1,26 @@
-streamlit
-langchain
-langchain-openai
-langchain-community
-langgraph
-supabase
-python-dotenv
-PyPDF2
-tiktoken
+# InquiryFlow Phase 1 - Core Dependencies
+# These are chosen for maintainability, fast development, and production readiness
+
+# LangChain + LangGraph ecosystem (orchestration + RAG)
+langchain>=0.2.0
+langchain-core>=0.2.0
+langchain-community>=0.2.0
+langchain-openai>=0.1.0          # Easy to swap for langchain-anthropic later
+langgraph>=0.2.0
+
+# Supabase (database + vector store)
+supabase>=2.5.0
+
+# Streamlit (clean, fast dashboard UI)
+streamlit>=1.35.0
+
+# Data handling & utilities
+pydantic>=2.7.0
+python-dotenv>=1.0.0
+pandas>=2.2.0
+
+# Optional but recommended for better chunking
+langchain-text-splitters>=0.2.0
+
+# For local testing / fallback vector store (easy to remove later)
+chromadb>=0.5.0
