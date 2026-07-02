@@ -82,43 +82,40 @@ def save_settings(settings: dict):
 
 
 def load_settings():
-    """Load settings and always return a complete, valid structure."""
+    """Load settings with clear debugging."""
     defaults = get_default_settings()
 
+    print("=== DEBUG: load_settings() called ===")
+    print(f"Supabase client exists: {supabase is not None}")
+
     if not supabase:
+        print("WARNING: Supabase client is None. Returning defaults.")
         return defaults
 
     try:
+        print("Attempting to fetch from Supabase...")
         response = supabase.table("app_settings").select("data").eq("id", 1).execute()
-        
+        print(f"Response received. Data: {response.data}")
+
         if response.data:
             stored = response.data[0].get("data", {})
+            print(f"Stored data keys: {list(stored.keys()) if isinstance(stored, dict) else 'Not a dict'}")
             
-            # Deep merge - always start from defaults
-            merged = json.loads(json.dumps(defaults))  # Deep copy
+            # Merge logic
+            merged = {**defaults, **stored}
             
-            # Override with stored values
-            if isinstance(stored, dict):
-                for key, value in stored.items():
-                    if key in merged:
-                        if isinstance(merged[key], dict) and isinstance(value, dict):
-                            merged[key].update(value)
-                        else:
-                            merged[key] = value
+            # Basic cleanup
+            if "common_questions" in merged:
+                del merged["common_questions"]
             
-            # Final safety checks
-            if "unavailable_service_message" not in merged or not merged.get("unavailable_service_message"):
-                merged["unavailable_service_message"] = defaults["unavailable_service_message"]
-            
-            if "tone" not in merged or not merged.get("tone"):
-                merged["tone"] = defaults["tone"]
-            
+            print("Successfully loaded and merged settings from Supabase.")
             return merged
-        
-        return defaults
-        
+        else:
+            print("No data found in Supabase. Returning defaults.")
+            return defaults
+
     except Exception as e:
-        print(f"Error loading settings: {e}")
+        print(f"ERROR in load_settings(): {str(e)}")
         return defaults
 
 
