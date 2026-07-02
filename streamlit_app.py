@@ -50,8 +50,15 @@ def load_past_inquiries(limit=50):
         print(f"Error loading inquiries: {e}")
         return []
 
-def save_inquiry(original_text: str, customer_name: str = None, summary: str = None, 
-                 ai_draft: str = None, final_response: str = None, status: str = "approved"):
+def save_inquiry(
+    original_text: str, 
+    customer_name: str = None, 
+    customer_identifier: str = None,
+    summary: str = None, 
+    ai_draft: str = None, 
+    final_response: str = None, 
+    status: str = "approved"
+):
     """Save an inquiry to the conversations table."""
     if not supabase:
         st.error("Supabase client not configured.")
@@ -63,6 +70,7 @@ def save_inquiry(original_text: str, customer_name: str = None, summary: str = N
         data = {
             "inquiry_number": inquiry_number,
             "customer_name": customer_name,
+            "customer_identifier": customer_identifier,   # ← Key for grouping
             "original_text": original_text,
             "ai_summary": summary,
             "ai_draft": ai_draft,
@@ -70,7 +78,7 @@ def save_inquiry(original_text: str, customer_name: str = None, summary: str = N
             "status": status
         }
         result = supabase.table("inquiries").insert(data).execute()
-        st.success(f"Inquiry saved successfully: {inquiry_number}")
+        st.success(f"Inquiry saved: {inquiry_number}")
         return result
     except Exception as e:
         st.error(f"Failed to save inquiry: {str(e)}")
