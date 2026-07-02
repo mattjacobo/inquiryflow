@@ -127,7 +127,9 @@ with st.sidebar:
 llm_coach = ChatOpenAI(model="gpt-4o", temperature=0.3)
 
 # ====================== MAIN CONTENT ======================
+# ====================== MAIN CONTENT ======================
 if st.session_state.current_page == "Dashboard":
+    # ------------------ DASHBOARD ------------------
     st.subheader("1. New Inquiry")
 
     col1, col2 = st.columns([3, 1])
@@ -154,7 +156,6 @@ if st.session_state.current_page == "Dashboard":
         if not customer_identifier.strip():
             st.error("Customer Identifier is required.")
         else:
-            # Auto-detect channel
             channel = auto_detect_channel(customer_identifier)
             
             with st.spinner("Analyzing inquiry and drafting response..."):
@@ -174,7 +175,7 @@ if st.session_state.current_page == "Dashboard":
         st.divider()
         st.subheader("AI Analysis & Draft")
 
-        # Metrics
+        # Metrics (keep your existing metrics code)
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Customer Type", result.get("customer_type", "—").title())
@@ -211,33 +212,32 @@ if st.session_state.current_page == "Dashboard":
         st.divider()
 
         b1, b2, b3 = st.columns([1.2, 1.2, 2])
-with b1:
-    if st.button("✅ Approve & Log", type="primary", use_container_width=True):
-        final_text = st.session_state.get("draft_editor", edited_draft)
+        with b1:
+            if st.button("✅ Approve & Log", type="primary", use_container_width=True):
+                final_text = st.session_state.get("draft_editor", edited_draft)
         
-        # Auto-detect channel
-        channel = auto_detect_channel(customer_identifier)
+                channel = auto_detect_channel(customer_identifier)
         
-        save_inquiry(
-            original_text=result.get("original_text", ""),
-            customer_name=result.get("customer_name"),
-            customer_identifier=customer_identifier.strip() or None,
-            channel=channel,                          # Pass detected channel
-            summary=result.get("summary", ""),
-            ai_draft=final_text,
-            final_response=final_text,
-            status="approved"
-        )
+                save_inquiry(
+                    original_text=result.get("original_text", ""),
+                    customer_name=result.get("customer_name"),
+                    customer_identifier=customer_identifier.strip() or None,
+                    channel=channel,
+                    summary=result.get("summary", ""),
+                    ai_draft=final_text,
+                    final_response=final_text,
+                    status="approved"
+                )
         
-        st.success("Response approved and logged.")
-        st.balloons()
+                st.success("Response approved and logged.")
+                st.balloons()
 
-        with st.expander("What will be sent to customer"):
-            st.code(final_text)
+                with st.expander("What will be sent to customer"):
+                    st.code(final_text)
         
-        if st.button("Process Another Inquiry"):
-            del st.session_state.current_result
-            st.rerun()
+                if st.button("Process Another Inquiry"):
+                    del st.session_state.current_result
+                    st.rerun()
             
         with b2:
             if st.button("Request More Info", use_container_width=True):
@@ -251,12 +251,11 @@ elif st.session_state.current_page == "Conversations":
 
     past_inquiries = load_past_inquiries()
 
-    st.write(f"Found {len(past_inquiries)} past inquiries")  # Debug line
+    st.write(f"Found {len(past_inquiries)} past inquiries")
 
     if not past_inquiries:
-        st.info("No past inquiries yet. Process and approve some inquiries on the Dashboard tab.")
+        st.info("No past inquiries yet.")
     else:
-        # Group by customer (channel + identifier)
         from collections import defaultdict
         grouped = defaultdict(list)
 
