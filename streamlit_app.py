@@ -122,24 +122,35 @@ if st.session_state.current_page == "Dashboard":
             placeholder="Paste the DM, email, or form submission..."
         )
     with col2:
-        customer_name = st.text_input("Customer name (optional)", value="")
-        customer_identifier = st.text_input(
-            "Customer identifier (email/phone/social handle)", 
-            value="",
-            placeholder="email or phone recommended"
+        customer_name = st.text_input("Customer name (optional display name)", value="")
+        
+        channel = st.selectbox(
+            "Inquiry Channel *",
+            ["SMS/Text", "Email", "Instagram DM", "Other"],
+            index=0
         )
+        
+        customer_identifier = st.text_input(
+            "Customer Identifier * (phone/email/social handle)",
+            value="",
+            placeholder="e.g. +15551234567 or john@email.com"
+        )
+        
         process_btn = st.button("Process Inquiry →", type="primary", use_container_width=True)
 
     # Processing + Results
     if process_btn and inquiry_text.strip():
-        with st.spinner("Analyzing inquiry and drafting response..."):
-            result: InquiryState = process_inquiry(
-                original_text=inquiry_text.strip(),
-                customer_name=customer_name.strip() or None,
-                settings=st.session_state.settings
-            )
-            st.session_state.current_result = result
-            st.session_state.sample_inquiry = ""
+        if not customer_identifier.strip():
+            st.error("Customer Identifier is required.")
+        else:
+            with st.spinner("Analyzing inquiry and drafting response..."):
+                result: InquiryState = process_inquiry(
+                    original_text=inquiry_text.strip(),
+                    customer_name=customer_name.strip() or None,
+                    settings=st.session_state.settings
+                )
+                st.session_state.current_result = result
+                st.session_state.sample_inquiry = ""
 
     if "current_result" in st.session_state:
         result = st.session_state.current_result
@@ -188,11 +199,11 @@ if st.session_state.current_page == "Dashboard":
             if st.button("✅ Approve & Log", type="primary", use_container_width=True):
                 final_text = st.session_state.get("draft_editor", edited_draft)
         
-                # Save to Supabase with identifier
                 save_inquiry(
                     original_text=result.get("original_text", ""),
                     customer_name=result.get("customer_name"),
-                    customer_identifier=customer_identifier.strip() or None,
+                    customer_identifier=customer_identifier.strip(),   # Required
+                    channel=channel,                                    # New
                     summary=result.get("summary", ""),
                     ai_draft=final_text,
                     final_response=final_text,
