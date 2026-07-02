@@ -251,49 +251,43 @@ elif st.session_state.current_page == "Settings":
 
     st.divider()
 
-# ============================================================
-# AI COACH CHATBOX
-# ============================================================
-st.subheader("🤖 AI Coach")
-st.write("Talk to the coach to update tone, services, or response behavior.")
-
-for message in st.session_state.coach_messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-if prompt := st.chat_input("Tell the AI Coach what to change..."):
-    st.session_state.coach_messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            chain = ai_coach_prompt | llm_coach | JsonOutputParser()
-            result = chain.invoke({"user_message": prompt})
-            message = result.get("message", "Done.")
-            st.markdown(message)
-
-            # Apply changes from JSON (your existing logic)
-            action = result.get("action")
-            details = result.get("details", {})
-            current_settings = st.session_state.settings
-            changes_made = False
-
-            if action == "update_tone" and "tone" in details:
-                current_settings["tone"] = details["tone"]
-                changes_made = True
-            elif action == "toggle_service" and "service" in details:
-                # ... your existing toggle logic ...
-                pass
-            elif action == "update_unavailable_message" and "message" in details:
-                current_settings["unavailable_service_message"] = details["message"]
-                changes_made = True
-
-            if changes_made:
-                st.session_state.settings = current_settings
-                st.success("Coach updated your settings. Click **Save Changes** to apply them permanently.")
-
-    st.session_state.coach_messages.append({"role": "assistant", "content": message})
+langchain_core.exceptions.OutputParserException: This app has encountered an error. The original error message is redacted to prevent data leaks. Full error details have been recorded in the logs (if you're on Streamlit Cloud, click on 'Manage app' in the lower right of your app).
+Traceback:
+File "/mount/src/inquiryflow/streamlit_app.py", line 272, in <module>
+    result = chain.invoke({"user_message": prompt})
+File "/home/adminuser/venv/lib/python3.14/site-packages/langchain_core/runnables/base.py", line 3444, in invoke
+    input_ = context.run(step.invoke, input_, config)
+File "/home/adminuser/venv/lib/python3.14/site-packages/langchain_core/output_parsers/base.py", line 211, in invoke
+    return self._call_with_config(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        lambda inner_input: self.parse_result(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+        run_type="parser",
+        ^^^^^^^^^^^^^^^^^^
+    )
+    ^
+File "/home/adminuser/venv/lib/python3.14/site-packages/langchain_core/runnables/base.py", line 2289, in _call_with_config
+    context.run(
+    ~~~~~~~~~~~^
+        call_func_with_variable_args,  # type: ignore[arg-type]
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+        **kwargs,
+        ^^^^^^^^^
+    ),
+    ^
+File "/home/adminuser/venv/lib/python3.14/site-packages/langchain_core/runnables/config.py", line 526, in call_func_with_variable_args
+    return func(input, **kwargs)  # type: ignore[call-arg]
+File "/home/adminuser/venv/lib/python3.14/site-packages/langchain_core/output_parsers/base.py", line 212, in <lambda>
+    lambda inner_input: self.parse_result(
+                        ~~~~~~~~~~~~~~~~~^
+        [ChatGeneration(message=inner_input)]
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ),
+    ^
+File "/home/adminuser/venv/lib/python3.14/site-packages/langchain_core/output_parsers/json.py", line 91, in parse_result
+    raise OutputParserException(msg, llm_output=text) from e
 
 # Footer
 st.divider()
