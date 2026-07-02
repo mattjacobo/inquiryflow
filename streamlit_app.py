@@ -70,7 +70,7 @@ def save_inquiry(
     original_text: str, 
     customer_name: str = None, 
     customer_identifier: str = None,
-    channel: str = "Other",                  # New
+    channel: str = "Other",                  # Auto-detected or manual
     summary: str = None, 
     ai_draft: str = None, 
     final_response: str = None, 
@@ -88,7 +88,7 @@ def save_inquiry(
             "inquiry_number": inquiry_number,
             "customer_name": customer_name,
             "customer_identifier": customer_identifier,
-            "channel": channel,                     # New
+            "channel": channel,                     # Channel is now stored
             "original_text": original_text,
             "ai_summary": summary,
             "ai_draft": ai_draft,
