@@ -222,7 +222,7 @@ elif st.session_state.current_page == "Settings":
 
     st.divider()
 
-   # ============================================================
+# ============================================================
 # AI COACH CHATBOX (Updated with Structured JSON)
 # ============================================================
 st.subheader("🤖 AI Coach")
