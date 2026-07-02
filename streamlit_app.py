@@ -122,6 +122,7 @@ if st.session_state.current_page == "Dashboard":
         st.divider()
 
         b1, b2, b3 = st.columns([1.2, 1.2, 2])
+		
         with b1:
             if st.button("✅ Approve & Log", type="primary", use_container_width=True):
                 final_text = st.session_state.get("draft_editor", edited_draft)
@@ -134,18 +135,18 @@ if st.session_state.current_page == "Dashboard":
                     ai_draft=final_text,
                     final_response=final_text,
                     status="approved"
-                 )
+                )
         
-                 st.success("Response approved and logged.")
-                 st.balloons()
+                st.success("Response approved and logged.")
+                st.balloons()
 
-                 with st.expander("What will be sent to customer"):
-                 st.code(final_text)
+                with st.expander("What will be sent to customer"):
+                    st.code(final_text)
         
-                 if st.button("Process Another Inquiry"):
-                     del st.session_state.current_result
-                     st.rerun()
-
+                if st.button("Process Another Inquiry"):
+                    del st.session_state.current_result
+                    st.rerun()
+            
         with b2:
             if st.button("Request More Info", use_container_width=True):
                 st.info("Follow-up workflow (Phase 2)")
