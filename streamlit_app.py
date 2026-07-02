@@ -29,6 +29,23 @@ from langchain_core.output_parsers import StrOutputParser
 
 load_dotenv()
 
+def safe_str(val, default="—"):
+    """Safely convert any value to a clean title-cased string."""
+    if val is None or val == "":
+        return default
+    try:
+        return str(val).strip().title()
+    except Exception:
+        return default
+
+
+@st.cache_data(ttl=300)  # cache results for 5 minutes
+def get_classification_result(conversation_text: str):
+    """Run your classifier/agent and return the result dict."""
+    # ← Replace this comment with your existing logic
+    result = run_classifier_or_agent(conversation_text)   # ← your function
+    return result
+
 # Initialize session state
 if "current_page" not in st.session_state:
     st.session_state.current_page = "Dashboard"
