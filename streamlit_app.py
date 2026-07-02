@@ -159,45 +159,45 @@ elif st.session_state.current_page == "Settings":
         height=100
     )
 
-# --- Service Roster (Safer Version) ---
-st.markdown("**Service Roster**")
-st.write("Check the services your shop offers.")
-
-services_data = settings.get("services", {})
-
-if not isinstance(services_data, dict):
-    st.error("Settings data is corrupted. Resetting to default services.")
-    settings["services"] = get_default_settings()["services"]
-    services_data = settings["services"]
-
-for category, sub_services in services_data.items():
-    if not isinstance(sub_services, dict):
-        continue  # skip bad data
-
-    st.markdown(f"**{category}**")
-    for service, enabled in sub_services.items():
-        settings["services"][category][service] = st.checkbox(
-            service,
-            value=bool(enabled),
-            key=f"service_{category}_{service}"
-        )
-
-    # Save / Discard
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("💾 Save Changes", type="primary", use_container_width=True):
-            if save_settings(settings) and regenerate_knowledge_base(settings):
-                st.success("Settings saved and knowledge base regenerated!")
-                st.session_state.settings = settings
-            else:
-                st.error("Failed to save settings.")
-
-    with c2:
-        if st.button("Discard Changes", use_container_width=True):
-            st.session_state.settings = load_settings()
-            st.info("Changes discarded.")
-
-    st.divider()
+    # --- Service Roster (Safer Version) ---
+    st.markdown("**Service Roster**")
+    st.write("Check the services your shop offers.")
+    
+    services_data = settings.get("services", {})
+    
+    if not isinstance(services_data, dict):
+        st.error("Settings data is corrupted. Resetting to default services.")
+        settings["services"] = get_default_settings()["services"]
+        services_data = settings["services"]
+    
+    for category, sub_services in services_data.items():
+        if not isinstance(sub_services, dict):
+            continue  # skip bad data
+    
+        st.markdown(f"**{category}**")
+        for service, enabled in sub_services.items():
+            settings["services"][category][service] = st.checkbox(
+                service,
+                value=bool(enabled),
+                key=f"service_{category}_{service}"
+            )
+    
+        # Save / Discard
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("💾 Save Changes", type="primary", use_container_width=True):
+                if save_settings(settings) and regenerate_knowledge_base(settings):
+                    st.success("Settings saved and knowledge base regenerated!")
+                    st.session_state.settings = settings
+                else:
+                    st.error("Failed to save settings.")
+    
+        with c2:
+            if st.button("Discard Changes", use_container_width=True):
+                st.session_state.settings = load_settings()
+                st.info("Changes discarded.")
+    
+        st.divider()
 
 # ============================================================
 # AI COACH CHATBOX (Improved Hybrid Version)
