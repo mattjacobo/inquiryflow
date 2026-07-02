@@ -5,6 +5,8 @@ InquiryFlow Phase 1.5 — Streamlit Dashboard
 import streamlit as st
 from typing import Optional
 
+from datetime import datetime
+from supabase import create_client, Client
 from workflow import process_inquiry, InquiryState
 from dotenv import load_dotenv
 from rag_utils import process_and_store_documents
@@ -47,6 +49,32 @@ def load_past_inquiries(limit=50):
     except Exception as e:
         print(f"Error loading inquiries: {e}")
         return []
+
+def save_inquiry(original_text: str, customer_name: str = None, summary: str = None, 
+                 ai_draft: str = None, final_response: str = None, status: str = "approved"):
+    """Save an inquiry to the conversations table."""
+    if not supabase:
+        print("Supabase not configured.")
+        return None
+
+    inquiry_number = f"INQ-{datetime.now().strftime('%Y%m%d')}-{str(hash(original_text))[-6:]}"
+
+    try:
+        data = {
+            "inquiry_number": inquiry_number,
+            "customer_name": customer_name,
+            "original_text": original_text,
+            "ai_summary": summary,
+            "ai_draft": ai_draft,
+            "final_response": final_response,
+            "status": status
+        }
+        result = supabase.table("inquiries").insert(data).execute()
+        print(f"Inquiry saved: {inquiry_number}")
+        return result
+    except Exception as e:
+        print(f"Error saving inquiry: {e}")
+        return None
 
 st.set_page_config(page_title="InquiryFlow — Phase 1.5", page_icon="🚗", layout="wide")
 
