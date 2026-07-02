@@ -239,12 +239,12 @@ elif st.session_state.current_page == "Conversations":
     if not past_inquiries:
         st.info("No past inquiries yet. Process and approve some inquiries on the Dashboard tab.")
     else:
-        # Group by customer_identifier
+        # Group by customer (channel + identifier)
         from collections import defaultdict
         grouped = defaultdict(list)
 
         for inquiry in past_inquiries:
-            key = inquiry.get("customer_identifier") or inquiry.get("customer_name") or "Unknown Customer"
+            key = f"{inquiry.get('channel', 'Unknown')} - {inquiry.get('customer_identifier') or inquiry.get('customer_name') or 'Unknown'}"
             grouped[key].append(inquiry)
 
         for customer_key, conversations in grouped.items():
@@ -253,7 +253,7 @@ elif st.session_state.current_page == "Conversations":
                     st.write(f"**{inquiry.get('inquiry_number')}** - {inquiry.get('status', 'unknown')}")
                     st.write(f"Original: {inquiry.get('original_text', '')[:150]}...")
                     if inquiry.get('final_response'):
-                        st.write(f"Response: {inquiry.get('final_response')[:200]}...")
+                        st.write(f"Response: {inquiry.get('final_response')[:250]}...")
                     st.caption(f"Created: {inquiry.get('created_at')}")
                     st.divider()
 
