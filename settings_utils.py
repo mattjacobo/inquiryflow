@@ -82,7 +82,7 @@ def save_settings(settings: dict):
 
 
 def load_settings():
-    """Load settings and always merge with defaults to prevent missing fields."""
+    """Load settings from Supabase and merge with defaults for reliability."""
     defaults = get_default_settings()
 
     if not supabase:
@@ -92,21 +92,25 @@ def load_settings():
         response = supabase.table("app_settings").select("data").eq("id", 1).execute()
         
         if response.data:
-            stored_data = response.data[0].get("data", {})
+            stored = response.data[0].get("data", {})
             
-            # Deep merge: defaults first, then override with stored values
-            merged = {**defaults, **stored_data}
+            # Merge stored data with defaults (stored values take priority)
+            merged = {**defaults, **stored}
             
             # Ensure services structure is complete
-            if "services" in stored_data and isinstance(stored_data["services"], dict):
-                for category, default_services in defaults["services"].items():
-                    if category not in merged["services"]:
+            if "services" in stored and isinstance(stored["services"], dict):
+                for category, default_services in defaults.get("services", {}).items():
+                    if category not in merged.get("services", {}):
                         merged["services"][category] = default_services
                     else:
-                        for service, default_enabled in default_services.items():
+                        for service, default_value in default_services.items():
                             if service not in merged["services"][category]:
-                                merged["services"][category][service] = default_enabled
+                                merged["services"][category][service] = default_value
             
+            # Ensure unavailable_service_message exists
+            if "unavailable_service_message" not in merged:
+                merged["unavailable_service_message"] = defaults["unavailable_service_message"]
+
             return merged
         
         return defaults
