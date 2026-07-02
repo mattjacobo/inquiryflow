@@ -112,7 +112,6 @@ llm_coach = ChatOpenAI(model="gpt-4o", temperature=0.3)
 
 # ====================== MAIN CONTENT ======================
 if st.session_state.current_page == "Dashboard":
-    # ------------------ DASHBOARD ------------------
     st.subheader("1. New Inquiry")
 
     col1, col2 = st.columns([3, 1])
@@ -125,12 +124,6 @@ if st.session_state.current_page == "Dashboard":
         )
     with col2:
         customer_name = st.text_input("Customer name (optional display name)", value="")
-        
-        channel = st.selectbox(
-            "Inquiry Channel *",
-            ["SMS/Text", "Email", "Instagram DM", "Other"],
-            index=0
-        )
         
         customer_identifier = st.text_input(
             "Customer Identifier * (phone/email/social handle)",
@@ -145,6 +138,9 @@ if st.session_state.current_page == "Dashboard":
         if not customer_identifier.strip():
             st.error("Customer Identifier is required.")
         else:
+            # Auto-detect channel
+            channel = auto_detect_channel(customer_identifier)
+            
             with st.spinner("Analyzing inquiry and drafting response..."):
                 result: InquiryState = process_inquiry(
                     original_text=inquiry_text.strip(),
@@ -153,6 +149,8 @@ if st.session_state.current_page == "Dashboard":
                 )
                 st.session_state.current_result = result
                 st.session_state.sample_inquiry = ""
+
+            st.info(f"Detected Channel: **{channel}**")
 
     if "current_result" in st.session_state:
         result = st.session_state.current_result
