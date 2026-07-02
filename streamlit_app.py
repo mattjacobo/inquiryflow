@@ -54,7 +54,7 @@ def save_inquiry(original_text: str, customer_name: str = None, summary: str = N
                  ai_draft: str = None, final_response: str = None, status: str = "approved"):
     """Save an inquiry to the conversations table."""
     if not supabase:
-        print("Supabase not configured.")
+        st.error("Supabase client not configured.")
         return None
 
     inquiry_number = f"INQ-{datetime.now().strftime('%Y%m%d')}-{str(hash(original_text))[-6:]}"
@@ -70,12 +70,12 @@ def save_inquiry(original_text: str, customer_name: str = None, summary: str = N
             "status": status
         }
         result = supabase.table("inquiries").insert(data).execute()
-        print(f"Inquiry saved: {inquiry_number}")
+        st.success(f"Inquiry saved successfully: {inquiry_number}")
         return result
     except Exception as e:
-        print(f"Error saving inquiry: {e}")
+        st.error(f"Failed to save inquiry: {str(e)}")
         return None
-
+		
 st.set_page_config(page_title="InquiryFlow — Phase 1.5", page_icon="🚗", layout="wide")
 
 st.title("InquiryFlow — Phase 2.0 MVP")
