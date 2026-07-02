@@ -18,6 +18,16 @@ from langchain_core.output_parsers import StrOutputParser
 
 load_dotenv()
 
+from supabase import create_client, Client
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+if SUPABASE_URL and SUPABASE_KEY:
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+else:
+    supabase = None
+
 # ====================== SESSION STATE ======================
 if "current_page" not in st.session_state:
     st.session_state.current_page = "Dashboard"
