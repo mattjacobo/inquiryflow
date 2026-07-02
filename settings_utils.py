@@ -82,17 +82,35 @@ def save_settings(settings: dict):
 
 
 def load_settings():
-    """Load settings from Supabase. Returns default if not found."""
+    """Load settings from Supabase and merge with defaults to prevent structure errors."""
+    defaults = get_default_settings()
+
     if not supabase:
-        return get_default_settings()
+        return defaults
 
     try:
         response = supabase.table("app_settings").select("data").eq("id", 1).execute()
         if response.data:
-            return response.data[0]["data"]
-        return get_default_settings()
-    except Exception:
-        return get_default_settings()
+            stored = response.data[0].get("data", {})
+            # Merge stored data with defaults (stored values take priority)
+            merged = {**defaults, **stored}
+
+            # Ensure nested services dict is complete
+            if "services" in stored and isinstance(stored["services"], dict):
+                for category, services in defaults["services"].items():
+                    if category not in merged["services"]:
+                        merged["services"][category] = services
+                    else:
+                        for service, enabled in services.items():
+                            if service not in merged["services"][category]:
+                                merged["services"][category][service] = enabled
+
+            return merged
+
+        return defaults
+    except Exception as e:
+        print(f"Error loading settings: {e}")
+        return defaults
 
 
 def regenerate_knowledge_base(settings: dict):
