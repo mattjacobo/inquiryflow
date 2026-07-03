@@ -251,27 +251,59 @@ elif st.session_state.current_page == "Conversations":
 
     past_inquiries = load_past_inquiries()
 
-    st.write(f"Found {len(past_inquiries)} past inquiries")
-
     if not past_inquiries:
-        st.info("No past inquiries yet.")
-    else:
-        from collections import defaultdict
-        grouped = defaultdict(list)
+        st.info("No past inquiries yet. Process and approve some inquiries on the Dashboard tab.")
+        return
 
-        for inquiry in past_inquiries:
-            key = f"{inquiry.get('channel', 'Unknown')} - {inquiry.get('customer_identifier') or inquiry.get('customer_name') or 'Unknown'}"
-            grouped[key].append(inquiry)
+    # Filters
+    col1, col2, col3 = st.columns([2, 2, 1])
+    with col1:
+        channel_filter = st.selectbox("Filter by Channel", ["All"] + sorted(set(i.get("channel") for i in past_inquiries if i.get("channel"))))
+    with col2:
+        status_filter = st.selectbox("Filter by Status", ["All", "pending_review", "approved", "sent", "closed"])
+    with col3:
+        search_term = st.text_input("Search", placeholder="Search inquiries...")
 
-        for customer_key, conversations in grouped.items():
-            with st.expander(f"👤 {customer_key} ({len(conversations)} inquiries)"):
-                for inquiry in conversations:
-                    st.write(f"**{inquiry.get('inquiry_number')}** - {inquiry.get('status', 'unknown')}")
-                    st.write(f"Original: {inquiry.get('original_text', '')[:150]}...")
+    # Apply filters
+    filtered = past_inquiries
+    if channel_filter != "All":
+        filtered = [i for i in filtered if i.get("channel") == channel_filter]
+    if status_filter != "All":
+        filtered = [i for i in filtered if i.get("status") == status_filter]
+    if search_term:
+        filtered = [i for i in filtered if search_term.lower() in str(i).lower()]
+
+    st.write(f"Showing {len(filtered)} conversations")
+
+    # Group by customer
+    from collections import defaultdict
+    grouped = defaultdict(list)
+    for inquiry in filtered:
+        key = f"{inquiry.get('channel', 'Unknown')} - {inquiry.get('customer_identifier') or inquiry.get('customer_name') or 'Unknown'}"
+        grouped[key].append(inquiry)
+
+    for customer_key, conversations in grouped.items():
+        with st.expander(f"👤 {customer_key} ({len(conversations)} messages)"):
+            for inquiry in sorted(conversations, key=lambda x: x.get("created_at", ""), reverse=True):
+                col_a, col_b = st.columns([4, 1])
+                with col_a:
+                    st.write(f"**{inquiry.get('inquiry_number')}** - {inquiry.get('status', 'unknown').replace('_', ' ').title()}")
+                    st.write(f"Original: {inquiry.get('original_text', '')[:200]}...")
                     if inquiry.get('final_response'):
-                        st.write(f"Response: {inquiry.get('final_response')[:250]}...")
-                    st.caption(f"Created: {inquiry.get('created_at')}")
-                    st.divider()
+                        st.write(f"Response: {inquiry.get('final_response')[:300]}...")
+                with col_b:
+                    new_status = st.selectbox(
+                        "Status",
+                        ["pending_review", "approved", "sent", "closed"],
+                        index=["pending_review", "approved", "sent", "closed"].index(inquiry.get("status", "pending_review")),
+                        key=f"status_{inquiry['id']}"
+                    )
+                    if new_status != inquiry.get("status"):
+                        # TODO: Add update function later
+                        st.success("Status updated (coming soon)")
+
+                st.caption(f"Created: {inquiry.get('created_at')}")
+                st.divider()
 
 elif st.session_state.current_page == "Settings":
     st.subheader("⚙️ Settings & Maintenance")
