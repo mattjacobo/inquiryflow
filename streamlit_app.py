@@ -272,13 +272,13 @@ elif st.session_state.current_page == "Conversations":
         col1, col2, col3 = st.columns([2, 2, 1])
         with col1:
             channel_filter = st.selectbox(
-                "Filter by Channel", 
+                "Filter by Channel",
                 ["All"] + sorted(set(i.get("channel") for i in past_inquiries if i.get("channel")))
             )
         with col2:
             status_filter = st.selectbox(
-                "Filter by Status", 
-                ["All", "pending_review", "approved", "sent", "closed"]
+                "Filter by Status",
+                ["All", "pending_review", "approved", "sent", "replied", "closed"]
             )
         with col3:
             search_term = st.text_input("Search", placeholder="Search inquiries...")
@@ -303,6 +303,7 @@ elif st.session_state.current_page == "Conversations":
 
         for customer_key, conversations in grouped.items():
             with st.expander(f"👤 {customer_key} ({len(conversations)} messages)"):
+
                 for inquiry in sorted(conversations, key=lambda x: x.get("created_at", ""), reverse=True):
                     col_a, col_b = st.columns([4, 1])
 
@@ -316,8 +317,8 @@ elif st.session_state.current_page == "Conversations":
                         current_status = inquiry.get("status", "pending_review")
                         new_status = st.selectbox(
                             "Status",
-                            ["pending_review", "approved", "sent", "closed"],
-                            index=["pending_review", "approved", "sent", "closed"].index(current_status),
+                            ["pending_review", "approved", "sent", "replied", "closed"],
+                            index=["pending_review", "approved", "sent", "replied", "closed"].index(current_status),
                             key=f"status_{inquiry.get('id')}"
                         )
                         if new_status != current_status:
@@ -327,50 +328,32 @@ elif st.session_state.current_page == "Conversations":
                     st.caption(f"Created: {inquiry.get('created_at')}")
                     st.divider()
 
-elif st.session_state.current_page == "Settings":
-    st.subheader("⚙️ Settings & Maintenance")
+                    # ======================
+                    # REPLY SECTION (NEW)
+                    # ======================
+                    reply_key = f"reply_text_{inquiry.get('id')}"
 
-    settings = st.session_state.settings
-
-    st.markdown("**Tone & Communication Style**")
-    settings["tone"] = st.text_area(
-        "How should the AI sound?",
-        value=settings.get("tone", ""),
-        height=100
-    )
-
-    st.markdown("**Service Roster**")
-    st.write("Check the services your shop offers.")
-
-    services_data = settings.get("services", {})
-
-    if isinstance(services_data, dict):
-        for category, sub_services in services_data.items():
-            if isinstance(sub_services, dict):
-                st.markdown(f"**{category}**")
-                for service, enabled in sub_services.items():
-                    settings["services"][category][service] = st.checkbox(
-                        service,
-                        value=bool(enabled),
-                        key=f"service_{category}_{service}"
+                    reply_text = st.text_area(
+                        "Type your reply below:",
+                        key=reply_key,
+                        placeholder="Enter your message here...",
+                        height=80
                     )
 
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("💾 Save Changes", type="primary", use_container_width=True, key="save_btn"):
-            if save_settings(settings):
-                if regenerate_knowledge_base(settings):
-                    st.success("Settings saved and knowledge base regenerated!")
-                    st.session_state.settings = settings
-                else:
-                    st.warning("Settings saved, but knowledge base regeneration had issues.")
-            else:
-                st.error("Failed to save settings to Supabase.")
-
-    with col2:
-        if st.button("Discard Changes", use_container_width=True, key="discard_btn"):
-            st.session_state.settings = load_settings()
-            st.info("Changes discarded.")
+                    if st.button("Send Reply via SMS", key=f"send_reply_{inquiry.get('id')}"):
+                        if reply_text.strip():
+                            # Send SMS
+                            success = send_sms(
+                                to_number=inquiry.get("customer_identifier"),
+                                message=reply_text.strip()
+                            )
+                            if success:
+                                # Update status to replied
+                                update_inquiry_status(inquiry.get("id"), "replied")
+                                st.success("Reply sent successfully!")
+                                st.rerun()
+                        else:
+                            st.warning("Please enter a reply before sending.")
 
     st.divider()
 
