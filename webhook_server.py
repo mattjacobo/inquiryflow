@@ -8,7 +8,6 @@ load_dotenv()
 
 app = FastAPI()
 
-# Supabase setup
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -19,7 +18,6 @@ async def receive_sms(
     From: str = Form(...),
     Body: str = Form(...),
 ):
-    """Receive incoming SMS from Twilio and save it."""
     print(f"Received SMS from {From}: {Body}")
 
     try:
@@ -31,7 +29,7 @@ async def receive_sms(
             "inquiry_number": f"SMS-{datetime.now().strftime('%Y%m%d%H%M%S')}"
         }
         supabase.table("inquiries").insert(data).execute()
-        print("Inquiry saved to Supabase.")
+        print("Inquiry saved successfully.")
     except Exception as e:
         print(f"Error saving inquiry: {e}")
 
