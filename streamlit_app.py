@@ -101,6 +101,20 @@ def save_inquiry(
     except Exception as e:
         st.error(f"Failed to save inquiry: {str(e)}")
         return None
+
+def update_inquiry_status(inquiry_id: str, new_status: str):
+    """Update the status of an inquiry in Supabase."""
+    if not supabase:
+        st.error("Supabase client not configured.")
+        return False
+
+    try:
+        supabase.table("inquiries").update({"status": new_status}).eq("id", inquiry_id).execute()
+        st.success(f"Status updated to: {new_status}")
+        return True
+    except Exception as e:
+        st.error(f"Failed to update status: {str(e)}")
+        return False
 		
 st.set_page_config(page_title="InquiryFlow — Phase 1.5", page_icon="🚗", layout="wide")
 
@@ -290,16 +304,17 @@ elif st.session_state.current_page == "Conversations":
                         st.write(f"Original: {inquiry.get('original_text', '')[:200]}...")
                         if inquiry.get('final_response'):
                             st.write(f"Response: {inquiry.get('final_response')[:300]}...")
-                    with col_b:
-                        # Status update placeholder
-                        new_status = st.selectbox(
-                            "Status",
-                            ["pending_review", "approved", "sent", "closed"],
-                            index=["pending_review", "approved", "sent", "closed"].index(inquiry.get("status", "pending_review")),
-                            key=f"status_{inquiry.get('id')}"
-                        )
-                        if new_status != inquiry.get("status"):
-                            st.success("Status updated (coming soon)")
+					with col_b:
+					    current_status = inquiry.get("status", "pending_review")
+					    new_status = st.selectbox(
+					        "Status",
+					        ["pending_review", "approved", "sent", "closed"],
+					        index=["pending_review", "approved", "sent", "closed"].index(current_status),
+					        key=f"status_{inquiry.get('id')}"
+					    )
+					    if new_status != current_status:
+					        if update_inquiry_status(inquiry.get("id"), new_status):
+					            st.rerun()  # Refresh the page to show updated status
 
                     st.caption(f"Created: {inquiry.get('created_at')}")
                     st.divider()
