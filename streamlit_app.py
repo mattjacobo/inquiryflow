@@ -381,6 +381,55 @@ elif st.session_state.current_page == "Conversations":
                                 st.rerun()
                         else:
                             st.warning("Please enter a reply before sending.")
+
+elif st.session_state.current_page == "Settings":
+    st.subheader("⚙️ Settings & Maintenance")
+
+    settings = st.session_state.settings
+
+    # Tone
+    st.markdown("**Tone & Communication Style**")
+    settings["tone"] = st.text_area(
+        "How should the AI sound?",
+        value=settings.get("tone", ""),
+        height=100
+    )
+
+    # Service Roster
+    st.markdown("**Service Roster**")
+    st.write("Check the services your shop offers.")
+
+    services_data = settings.get("services", {})
+
+    if isinstance(services_data, dict):
+        for category, sub_services in services_data.items():
+            if isinstance(sub_services, dict):
+                st.markdown(f"**{category}**")
+                for service, enabled in sub_services.items():
+                    settings["services"][category][service] = st.checkbox(
+                        service,
+                        value=bool(enabled),
+                        key=f"service_{category}_{service}"
+                    )
+
+    # Save / Discard buttons
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("💾 Save Changes", type="primary", use_container_width=True, key="save_btn"):
+            if save_settings(settings):
+                if regenerate_knowledge_base(settings):
+                    st.success("Settings saved and knowledge base regenerated!")
+                    st.session_state.settings = settings
+                else:
+                    st.warning("Settings saved, but knowledge base regeneration had issues.")
+            else:
+                st.error("Failed to save settings to Supabase.")
+
+    with col2:
+        if st.button("Discard Changes", use_container_width=True, key="discard_btn"):
+            st.session_state.settings = load_settings()
+            st.info("Changes discarded.")
+	
     st.divider()
 
     # AI Coach
