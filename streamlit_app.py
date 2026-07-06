@@ -115,6 +115,37 @@ def update_inquiry_status(inquiry_id: str, new_status: str):
     except Exception as e:
         st.error(f"Failed to update status: {str(e)}")
         return False
+
+def add_reply_to_inquiry(inquiry_id: str, reply_text: str, sender: str = "human"):
+    """Save a reply to the inquiry's replies array in Supabase."""
+    if not supabase:
+        st.error("Supabase client not configured.")
+        return False
+
+    try:
+        # Get current replies
+        result = supabase.table("inquiries").select("replies").eq("id", inquiry_id).execute()
+        current_replies = result.data[0].get("replies", []) if result.data else []
+
+        # Create new reply object
+        new_reply = {
+            "text": reply_text,
+            "sender": sender,
+            "timestamp": datetime.now().isoformat()
+        }
+
+        current_replies.append(new_reply)
+
+        # Update the inquiry
+        supabase.table("inquiries").update({
+            "replies": current_replies,
+            "status": "replied"
+        }).eq("id", inquiry_id).execute()
+
+        return True
+    except Exception as e:
+        st.error(f"Failed to save reply: {e}")
+        return False
 		
 st.set_page_config(page_title="InquiryFlow — Phase 1.5", page_icon="🚗", layout="wide")
 
@@ -271,15 +302,9 @@ elif st.session_state.current_page == "Conversations":
         # Filters
         col1, col2, col3 = st.columns([2, 2, 1])
         with col1:
-            channel_filter = st.selectbox(
-                "Filter by Channel",
-                ["All"] + sorted(set(i.get("channel") for i in past_inquiries if i.get("channel")))
-            )
+            channel_filter = st.selectbox("Filter by Channel", ["All"] + sorted(set(i.get("channel") for i in past_inquiries if i.get("channel"))))
         with col2:
-            status_filter = st.selectbox(
-                "Filter by Status",
-                ["All", "pending_review", "approved", "sent", "replied", "closed"]
-            )
+            status_filter = st.selectbox("Filter by Status", ["All", "pending_review", "approved", "sent", "replied", "closed"])
         with col3:
             search_term = st.text_input("Search", placeholder="Search inquiries...")
 
@@ -305,56 +330,57 @@ elif st.session_state.current_page == "Conversations":
             with st.expander(f"👤 {customer_key} ({len(conversations)} messages)"):
 
                 for inquiry in sorted(conversations, key=lambda x: x.get("created_at", ""), reverse=True):
-                    col_a, col_b = st.columns([4, 1])
+                    
+                    # Show Original Message
+                    st.write(f"**{inquiry.get('inquiry_number')}** - {inquiry.get('status', 'unknown').replace('_', ' ').title()}")
+                    st.write(f"**Original Message:** {inquiry.get('original_text', '')}")
 
-                    with col_a:
-                        st.write(f"**{inquiry.get('inquiry_number')}** - {inquiry.get('status', 'unknown').replace('_', ' ').title()}")
-                        st.write(f"Original: {inquiry.get('original_text', '')[:200]}...")
-                        if inquiry.get('final_response'):
-                            st.write(f"Response: {inquiry.get('final_response')[:300]}...")
+                    # Show AI Draft (if exists)
+                    if inquiry.get('final_response'):
+                        st.write(f"**AI Draft:** {inquiry.get('final_response')}")
 
-                    with col_b:
-                        current_status = inquiry.get("status", "pending_review")
-                        new_status = st.selectbox(
-                            "Status",
-                            ["pending_review", "approved", "sent", "replied", "closed"],
-                            index=["pending_review", "approved", "sent", "replied", "closed"].index(current_status),
-                            key=f"status_{inquiry.get('id')}"
-                        )
-                        if new_status != current_status:
-                            if update_inquiry_status(inquiry.get("id"), new_status):
-                                st.rerun()
+                    # Show Saved Replies (Threading)
+                    replies = inquiry.get("replies", [])
+                    if replies:
+                        st.markdown("**Replies:**")
+                        for reply in replies:
+                            sender = "You" if reply.get("sender") == "human" else "AI"
+                            st.write(f"- **{sender}:** {reply.get('text')}")
 
                     st.caption(f"Created: {inquiry.get('created_at')}")
                     st.divider()
 
                     # ======================
-                    # REPLY SECTION (NEW)
+                    # REPLY INPUT + SEND BUTTON
                     # ======================
-                    reply_key = f"reply_text_{inquiry.get('id')}"
+                    reply_key = f"reply_{inquiry.get('id')}"
 
                     reply_text = st.text_area(
-                        "Type your reply below:",
+                        "Type your reply:",
                         key=reply_key,
                         placeholder="Enter your message here...",
                         height=80
                     )
 
-                    if st.button("Send Reply via SMS", key=f"send_reply_{inquiry.get('id')}"):
+                    if st.button("Send Reply via SMS", key=f"send_{inquiry.get('id')}"):
                         if reply_text.strip():
-                            # Send SMS
-                            success = send_sms(
+                            # 1. Send SMS
+                            sms_sent = send_sms(
                                 to_number=inquiry.get("customer_identifier"),
                                 message=reply_text.strip()
                             )
-                            if success:
-                                # Update status to replied
-                                update_inquiry_status(inquiry.get("id"), "replied")
-                                st.success("Reply sent successfully!")
+                            
+                            if sms_sent:
+                                # 2. Save reply to database (Threading)
+                                add_reply_to_inquiry(
+                                    inquiry_id=inquiry.get("id"),
+                                    reply_text=reply_text.strip(),
+                                    sender="human"
+                                )
+                                st.success("Reply sent and saved!")
                                 st.rerun()
                         else:
                             st.warning("Please enter a reply before sending.")
-
     st.divider()
 
     # AI Coach
