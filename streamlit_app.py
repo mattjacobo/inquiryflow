@@ -294,6 +294,29 @@ if st.session_state.current_page == "Dashboard":
 elif st.session_state.current_page == "Conversations":
     st.subheader("📋 Conversations History")
 
+	# ============================================================
+# EMAIL INTAKE BUTTON
+# ============================================================
+from email_utils import process_new_emails
+
+st.subheader("📥 Email Intake")
+
+col1, col2 = st.columns([1, 3])
+
+with col1:
+    if st.button("Fetch New Emails", type="primary", use_container_width=True):
+        with st.spinner("Checking inbox..."):
+            created_ids = process_new_emails()
+            
+            if created_ids:
+                st.success(f"Successfully created {len(created_ids)} new inquiry(ies) from email.")
+                st.rerun()   # Refresh so the new inquiries appear
+            else:
+                st.info("No new unread emails found.")
+
+with col2:
+    st.caption("This checks your connected inbox for new unread emails and creates inquiries automatically.")
+
     past_inquiries = load_past_inquiries()
 
     if not past_inquiries:
