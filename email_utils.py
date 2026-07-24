@@ -12,6 +12,7 @@ import os
 from typing import Optional
 from supabase import create_client, Client
 from dotenv import load_dotenv
+from workflow import process_inquiry
 
 load_dotenv()
 
@@ -171,23 +172,55 @@ def create_inquiry_from_email(email_data: dict) -> Optional[str]:
 
 
 # ============================================================
-# 3. High-level helper: Fetch + Create
+# 3. High-level helper: Fetch + Create + Run AI
 # ============================================================
-def process_new_emails(auto_process: bool = False) -> list[str]:
+from workflow import process_inquiry   # Add this import at the top of the file if not already present
+
+def process_new_emails(auto_run_ai: bool = True) -> list[str]:
     """
-    Fetches new emails and creates inquiry records.
+    Fetches new emails, creates inquiry records, and optionally runs the AI workflow.
     Returns list of created inquiry IDs.
-    
-    Set auto_process=True later if you want to automatically run the AI workflow.
     """
     new_emails = fetch_new_emails()
     created_ids = []
 
     for email_data in new_emails:
+        # 1. Create the inquiry record
         inquiry_id = create_inquiry_from_email(email_data)
-        if inquiry_id:
-            created_ids.append(inquiry_id)
-            print(f"Created inquiry {inquiry_id} from {email_data['from_email']}")
+        
+        if not inquiry_id:
+            continue
+
+        created_ids.append(inquiry_id)
+        print(f"Created inquiry {inquiry_id} from {email_data['from_email']}")
+
+        # 2. Optionally run the AI workflow
+        if auto_run_ai:
+            try:
+                result = process_inquiry(
+                    original_text=email_data["body"] or email_data.get("subject", ""),
+                    customer_name=email_data.get("from_name"),
+                    settings=None
+                )
+
+                # 3. Save the AI results back to the inquiry
+                update_data = {
+                    "ai_draft": result.get("draft_response"),
+                    "ai_summary": result.get("summary"),
+                    "customer_type": result.get("customer_type"),
+                    "category": result.get("category"),
+                    "urgency": result.get("urgency"),
+                    "status": "pending_review"
+                }
+
+                # Remove any None values
+                update_data = {k: v for k, v in update_data.items() if v is not None}
+
+                supabase.table("inquiries").update(update_data).eq("id", inquiry_id).execute()
+                print(f"AI processing completed for inquiry {inquiry_id}")
+
+            except Exception as e:
+                print(f"AI processing failed for inquiry {inquiry_id}: {e}")
 
     return created_ids
 
