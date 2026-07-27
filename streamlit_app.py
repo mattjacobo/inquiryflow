@@ -443,7 +443,6 @@ elif st.session_state.current_page == "Conversations":
                                     body=ai_draft
                                 )
                             else:
-                                # Fallback for SMS / other (will fail gracefully if send_sms not available)
                                 try:
                                     success = send_sms(
                                         to_number=inquiry.get("customer_identifier"),
@@ -459,7 +458,7 @@ elif st.session_state.current_page == "Conversations":
                                 st.success("AI Draft sent and logged!")
                                 st.rerun()
 
-                    # 2. Manual Reply Box + Send
+                    # 2. Manual Reply
                     with btn_col2:
                         reply_key = f"reply_{inquiry_id}"
                         reply_text = st.text_area(
@@ -498,12 +497,27 @@ elif st.session_state.current_page == "Conversations":
                                     st.success("Manual reply sent and logged!")
                                     st.rerun()
 
-                    # 3. Delete Conversation
+                    # 3. Archive / Unarchive / Hard Delete logic
                     with btn_col4:
-                        if st.button("🗑️ Delete", key=f"delete_{inquiry_id}", use_container_width=True):
-                            if delete_inquiry(inquiry_id):
-                                st.success("Conversation deleted.")
-                                st.rerun()
+                        current_status = inquiry.get("status")
+
+                        if current_status == "archived":
+                            # Only show these buttons when viewing archived conversations
+                            if st.button("Unarchive", key=f"unarchive_{inquiry_id}", use_container_width=True):
+                                if unarchive_inquiry(inquiry_id):
+                                    st.success("Conversation restored.")
+                                    st.rerun()
+
+                            if st.button("🗑️ Delete Permanently", key=f"hard_delete_{inquiry_id}", use_container_width=True):
+                                if delete_inquiry(inquiry_id):
+                                    st.success("Conversation permanently deleted.")
+                                    st.rerun()
+                        else:
+                            # Normal view – only show Archive
+                            if st.button("Archive", key=f"archive_{inquiry_id}", use_container_width=True):
+                                if archive_inquiry(inquiry_id):
+                                    st.success("Conversation archived.")
+                                    st.rerun()
 
 elif st.session_state.current_page == "Settings":
     st.subheader("⚙️ Settings & Maintenance")
