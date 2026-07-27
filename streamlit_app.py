@@ -102,6 +102,18 @@ def save_inquiry(
         st.error(f"Failed to save inquiry: {str(e)}")
         return None
 
+def delete_inquiry(inquiry_id: str) -> bool:
+    """Permanently delete an inquiry from Supabase."""
+    if not supabase:
+        st.error("Supabase client not configured.")
+        return False
+    try:
+        supabase.table("inquiries").delete().eq("id", inquiry_id).execute()
+        return True
+    except Exception as e:
+        st.error(f"Failed to delete inquiry: {e}")
+        return False
+
 def update_inquiry_status(inquiry_id: str, new_status: str):
     """Update the status of an inquiry in Supabase."""
     if not supabase:
