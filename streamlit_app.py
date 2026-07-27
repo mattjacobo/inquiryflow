@@ -102,8 +102,34 @@ def save_inquiry(
         st.error(f"Failed to save inquiry: {str(e)}")
         return None
 
+def archive_inquiry(inquiry_id: str) -> bool:
+    """Soft delete – move inquiry to archived status."""
+    if not supabase:
+        st.error("Supabase client not configured.")
+        return False
+    try:
+        supabase.table("inquiries").update({"status": "archived"}).eq("id", inquiry_id).execute()
+        return True
+    except Exception as e:
+        st.error(f"Failed to archive inquiry: {e}")
+        return False
+
+
+def unarchive_inquiry(inquiry_id: str) -> bool:
+    """Restore an archived inquiry back to pending_review."""
+    if not supabase:
+        st.error("Supabase client not configured.")
+        return False
+    try:
+        supabase.table("inquiries").update({"status": "pending_review"}).eq("id", inquiry_id).execute()
+        return True
+    except Exception as e:
+        st.error(f"Failed to unarchive inquiry: {e}")
+        return False
+
+
 def delete_inquiry(inquiry_id: str) -> bool:
-    """Permanently delete an inquiry from Supabase."""
+    """Hard delete – permanently remove from database. Only use from Archive section."""
     if not supabase:
         st.error("Supabase client not configured.")
         return False
@@ -111,7 +137,7 @@ def delete_inquiry(inquiry_id: str) -> bool:
         supabase.table("inquiries").delete().eq("id", inquiry_id).execute()
         return True
     except Exception as e:
-        st.error(f"Failed to delete inquiry: {e}")
+        st.error(f"Failed to permanently delete inquiry: {e}")
         return False
 
 def update_inquiry_status(inquiry_id: str, new_status: str):
