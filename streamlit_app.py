@@ -309,19 +309,17 @@ elif st.session_state.current_page == "Conversations":
     # ============================================================
     # EMAIL INTAKE BUTTON
     # ============================================================
-    from email_utils import process_new_emails
+    from email_utils import process_new_emails, send_email_reply
 
     st.markdown("### 📥 Email Intake")
-
     col1, col2 = st.columns([1, 3])
 
     with col1:
         if st.button("Fetch New Emails", type="primary", use_container_width=True):
             with st.spinner("Checking inbox and running AI..."):
                 created_ids = process_new_emails(auto_run_ai=True)
-
                 if created_ids:
-                    st.success(f"Created and processed {len(created_ids)} new inquiry(ies) from email.")
+                    st.success(f"Created and processed {len(created_ids)} new inquiry(ies).")
                     st.rerun()
                 else:
                     st.info("No new unread emails found.")
@@ -329,19 +327,28 @@ elif st.session_state.current_page == "Conversations":
     with col2:
         st.caption("Checks your connected inbox for new unread emails and runs them through the AI workflow.")
 
-    st.divider()	
+    st.divider()
 
+    # ============================================================
+    # CONVERSATIONS LIST
+    # ============================================================
     past_inquiries = load_past_inquiries()
 
     if not past_inquiries:
-        st.info("No past inquiries yet. Process and approve some inquiries on the Dashboard tab.")
+        st.info("No past inquiries yet.")
     else:
         # Filters
         col1, col2, col3 = st.columns([2, 2, 1])
         with col1:
-            channel_filter = st.selectbox("Filter by Channel", ["All"] + sorted(set(i.get("channel") for i in past_inquiries if i.get("channel"))))
+            channel_filter = st.selectbox(
+                "Filter by Channel",
+                ["All"] + sorted(set(i.get("channel") for i in past_inquiries if i.get("channel")))
+            )
         with col2:
-            status_filter = st.selectbox("Filter by Status", ["All", "pending_review", "approved", "sent", "replied", "closed"])
+            status_filter = st.selectbox(
+                "Filter by Status",
+                ["All", "pending_review", "approved", "sent", "replied", "closed"]
+            )
         with col3:
             search_term = st.text_input("Search", placeholder="Search inquiries...")
 
@@ -356,68 +363,121 @@ elif st.session_state.current_page == "Conversations":
 
         st.write(f"Showing {len(filtered)} conversations")
 
-        # Group by customer
         from collections import defaultdict
         grouped = defaultdict(list)
         for inquiry in filtered:
-            key = f"{inquiry.get('channel', 'Unknown')} - {inquiry.get('customer_identifier') or inquiry.get('customer_name') or 'Unknown'}"
+            key = f"{inquiry.get('channel', 'Unknown')} – {inquiry.get('customer_identifier') or inquiry.get('customer_name') or 'Unknown'}"
             grouped[key].append(inquiry)
 
         for customer_key, conversations in grouped.items():
-            with st.expander(f"👤 {customer_key} ({len(conversations)} messages)"):
+            with st.expander(f"👤 {customer_key} ({len(conversations)} messages)", expanded=False):
 
                 for inquiry in sorted(conversations, key=lambda x: x.get("created_at", ""), reverse=True):
-                    
-                    # Show Original Message
-                    st.write(f"**{inquiry.get('inquiry_number')}** - {inquiry.get('status', 'unknown').replace('_', ' ').title()}")
-                    st.write(f"**Original Message:** {inquiry.get('original_text', '')}")
+                    inquiry_id = inquiry.get("id")
+                    channel = inquiry.get("channel", "Other")
+                    status = inquiry.get("status", "unknown").replace("_", " ").title()
+                    ai_draft = inquiry.get("ai_draft") or inquiry.get("final_response") or ""
 
-                    # Show AI Draft (if exists)
-                    if inquiry.get('final_response'):
-                        st.write(f"**AI Draft:** {inquiry.get('final_response')}")
+                    # Header
+                    st.markdown(f"**{inquiry.get('inquiry_number')}** · {status} · `{channel}`")
+                    st.caption(f"Created: {inquiry.get('created_at')}")
 
-                    # Show Saved Replies (Threading)
-                    replies = inquiry.get("replies", [])
+                    # Original message
+                    st.markdown("**Customer Message:**")
+                    st.info(inquiry.get("original_text", ""))
+
+                    # ========== BETTER AI DRAFT DISPLAY ==========
+                    if ai_draft:
+                        st.markdown("**AI Draft:**")
+                        st.success(ai_draft)
+                    else:
+                        st.warning("No AI draft available yet.")
+
+                    # Saved replies (threading)
+                    replies = inquiry.get("replies") or []
                     if replies:
-                        st.markdown("**Replies:**")
+                        st.markdown("**Conversation History:**")
                         for reply in replies:
                             sender = "You" if reply.get("sender") == "human" else "AI"
                             st.write(f"- **{sender}:** {reply.get('text')}")
 
-                    st.caption(f"Created: {inquiry.get('created_at')}")
                     st.divider()
 
-                    # ======================
-                    # REPLY INPUT + SEND BUTTON
-                    # ======================
-                    reply_key = f"reply_{inquiry.get('id')}"
+                    # ========== ACTION BUTTONS ==========
+                    btn_col1, btn_col2, btn_col3, btn_col4 = st.columns(4)
 
-                    reply_text = st.text_area(
-                        "Type your reply:",
-                        key=reply_key,
-                        placeholder="Enter your message here...",
-                        height=80
-                    )
-
-                    if st.button("Send Reply via SMS", key=f"send_{inquiry.get('id')}"):
-                        if reply_text.strip():
-                            # 1. Send SMS
-                            sms_sent = send_sms(
-                                to_number=inquiry.get("customer_identifier"),
-                                message=reply_text.strip()
-                            )
-                            
-                            if sms_sent:
-                                # 2. Save reply to database (Threading)
-                                add_reply_to_inquiry(
-                                    inquiry_id=inquiry.get("id"),
-                                    reply_text=reply_text.strip(),
-                                    sender="human"
+                    # 1. Send AI Draft
+                    with btn_col1:
+                        if ai_draft and st.button("Send AI Draft", key=f"send_ai_{inquiry_id}", use_container_width=True):
+                            success = False
+                            if channel == "Email":
+                                success = send_email_reply(
+                                    to_email=inquiry.get("customer_identifier"),
+                                    subject="Re: Your Inquiry",
+                                    body=ai_draft
                                 )
-                                st.success("Reply sent and saved!")
+                            else:
+                                # Fallback for SMS / other (will fail gracefully if send_sms not available)
+                                try:
+                                    success = send_sms(
+                                        to_number=inquiry.get("customer_identifier"),
+                                        message=ai_draft
+                                    )
+                                except NameError:
+                                    st.error("SMS sending is not configured.")
+                                    success = False
+
+                            if success:
+                                add_reply_to_inquiry(inquiry_id, ai_draft, sender="ai")
+                                update_inquiry_status(inquiry_id, "replied")
+                                st.success("AI Draft sent and logged!")
                                 st.rerun()
-                        else:
-                            st.warning("Please enter a reply before sending.")
+
+                    # 2. Manual Reply Box + Send
+                    with btn_col2:
+                        reply_key = f"reply_{inquiry_id}"
+                        reply_text = st.text_area(
+                            "Manual reply",
+                            key=reply_key,
+                            placeholder="Type your own reply...",
+                            height=80,
+                            label_visibility="collapsed"
+                        )
+
+                    with btn_col3:
+                        if st.button("Send Manual Reply", key=f"send_manual_{inquiry_id}", use_container_width=True):
+                            if not reply_text.strip():
+                                st.warning("Please enter a reply first.")
+                            else:
+                                success = False
+                                if channel == "Email":
+                                    success = send_email_reply(
+                                        to_email=inquiry.get("customer_identifier"),
+                                        subject="Re: Your Inquiry",
+                                        body=reply_text.strip()
+                                    )
+                                else:
+                                    try:
+                                        success = send_sms(
+                                            to_number=inquiry.get("customer_identifier"),
+                                            message=reply_text.strip()
+                                        )
+                                    except NameError:
+                                        st.error("SMS sending is not configured.")
+                                        success = False
+
+                                if success:
+                                    add_reply_to_inquiry(inquiry_id, reply_text.strip(), sender="human")
+                                    update_inquiry_status(inquiry_id, "replied")
+                                    st.success("Manual reply sent and logged!")
+                                    st.rerun()
+
+                    # 3. Delete Conversation
+                    with btn_col4:
+                        if st.button("🗑️ Delete", key=f"delete_{inquiry_id}", use_container_width=True):
+                            if delete_inquiry(inquiry_id):
+                                st.success("Conversation deleted.")
+                                st.rerun()
 
 elif st.session_state.current_page == "Settings":
     st.subheader("⚙️ Settings & Maintenance")
