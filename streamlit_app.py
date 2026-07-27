@@ -428,9 +428,14 @@ elif st.session_state.current_page == "Conversations":
                             st.write(f"- **{sender}:** {reply.get('text')}")
 
                     st.divider()
-
+					
                     # ========== ACTION BUTTONS ==========
                     btn_col1, btn_col2, btn_col3, btn_col4 = st.columns(4)
+
+                    # Get original email metadata for threading
+                    metadata = inquiry.get("metadata") or {}
+                    original_message_id = metadata.get("message_id")
+                    original_subject = metadata.get("subject") or "Your Inquiry"
 
                     # 1. Send AI Draft
                     with btn_col1:
@@ -439,8 +444,10 @@ elif st.session_state.current_page == "Conversations":
                             if channel == "Email":
                                 success = send_email_reply(
                                     to_email=inquiry.get("customer_identifier"),
-                                    subject="Re: Your Inquiry",
-                                    body=ai_draft
+                                    subject=original_subject,
+                                    body=ai_draft,
+                                    in_reply_to=original_message_id,
+                                    references=original_message_id
                                 )
                             else:
                                 try:
@@ -478,8 +485,10 @@ elif st.session_state.current_page == "Conversations":
                                 if channel == "Email":
                                     success = send_email_reply(
                                         to_email=inquiry.get("customer_identifier"),
-                                        subject="Re: Your Inquiry",
-                                        body=reply_text.strip()
+                                        subject=original_subject,
+                                        body=reply_text.strip(),
+                                        in_reply_to=original_message_id,
+                                        references=original_message_id
                                     )
                                 else:
                                     try:
@@ -502,7 +511,6 @@ elif st.session_state.current_page == "Conversations":
                         current_status = inquiry.get("status")
 
                         if current_status == "archived":
-                            # Only show these buttons when viewing archived conversations
                             if st.button("Unarchive", key=f"unarchive_{inquiry_id}", use_container_width=True):
                                 if unarchive_inquiry(inquiry_id):
                                     st.success("Conversation restored.")
@@ -513,7 +521,6 @@ elif st.session_state.current_page == "Conversations":
                                     st.success("Conversation permanently deleted.")
                                     st.rerun()
                         else:
-                            # Normal view – only show Archive
                             if st.button("Archive", key=f"archive_{inquiry_id}", use_container_width=True):
                                 if archive_inquiry(inquiry_id):
                                     st.success("Conversation archived.")
