@@ -241,17 +241,7 @@ def process_new_emails(auto_run_ai: bool = True) -> list[str]:
                     settings=None
                 )
 
-                print("AI RESULT:", result)  # ← Add this temporary line
-
-                update_data = {
-                    "ai_draft": result.get("draft_response"),
-                    "ai_summary": result.get("summary"),
-                    "customer_type": result.get("customer_type"),
-                    "category": result.get("category"),
-                    "urgency": result.get("urgency"),
-                    "status": "pending_review"
-                }
-
+                update_data = normalize_ai_fields(result)
                 update_data = {k: v for k, v in update_data.items() if v is not None}
 
                 supabase.table("inquiries").update(update_data).eq("id", inquiry_id).execute()
@@ -259,7 +249,7 @@ def process_new_emails(auto_run_ai: bool = True) -> list[str]:
 
             except Exception as e:
                 print(f"AI processing failed for inquiry {inquiry_id}: {e}")
-                raise  # ← Temporarily re-raise so the error shows in Streamlit
+                raise
                 
     return created_ids
 
