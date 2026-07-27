@@ -32,6 +32,44 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# ============================================================
+# Helper: Normalize AI Fields
+# ============================================================
+def normalize_ai_fields(result: dict) -> dict:
+    """Map AI output to safe values that pass database constraints."""
+    
+    # Normalize customer_type
+    customer_type = (result.get("customer_type") or "").lower().strip()
+    allowed_customer_types = {
+        "new", "returning", "potential_customer", "existing", 
+        "vip", "unknown", "general_inquiry", "individual"
+    }
+    if customer_type not in allowed_customer_types:
+        customer_type = "unknown"
+
+    # Normalize category
+    category = (result.get("category") or "").lower().strip().replace(" ", "_")
+    allowed_categories = {
+        "service_inquiry", "quote_request", "brake_service", "oil_change",
+        "audio_install", "suspension", "detailing", "general_maintenance",
+        "availability", "general_inquiry", "other", "service_inquiry"
+    }
+    if category not in allowed_categories:
+        category = "other"
+
+    # Normalize urgency
+    urgency = (result.get("urgency") or "medium").lower().strip()
+    if urgency not in {"high", "medium", "low"}:
+        urgency = "medium"
+
+    return {
+        "customer_type": customer_type,
+        "category": category,
+        "urgency": urgency,
+        "ai_draft": result.get("draft_response"),
+        "ai_summary": result.get("summary"),
+        "status": "pending_review"
+    }
 
 # ============================================================
 # Helper: Decode email headers safely
