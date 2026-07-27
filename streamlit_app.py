@@ -373,7 +373,7 @@ elif st.session_state.current_page == "Conversations":
         with col2:
             status_filter = st.selectbox(
                 "Filter by Status",
-                ["All", "pending_review", "approved", "sent", "replied", "closed"]
+                ["All", "pending_review", "approved", "sent", "replied", "closed", "archived"]
             )
         with col3:
             search_term = st.text_input("Search", placeholder="Search inquiries...")
