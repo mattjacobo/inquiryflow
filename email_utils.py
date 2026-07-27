@@ -257,18 +257,33 @@ def process_new_emails(auto_run_ai: bool = True) -> list[str]:
 # ============================================================
 # 4. Send reply via email (basic version)
 # ============================================================
-def send_email_reply(to_email: str, subject: str, body: str) -> bool:
+def send_email_reply(
+    to_email: str,
+    subject: str,
+    body: str,
+    in_reply_to: str = None,
+    references: str = None
+) -> bool:
     """
-    Sends a plain text email reply using SMTP.
+    Sends a reply email with proper threading headers.
     """
     import smtplib
     from email.mime.text import MIMEText
 
     try:
         msg = MIMEText(body)
-        msg["Subject"] = subject if subject.lower().startswith("re:") else f"Re: {subject}"
+        
+        # Subject
+        if not subject.lower().startswith("re:"):
+            subject = f"Re: {subject}"
+        msg["Subject"] = subject
         msg["From"] = EMAIL_USER
         msg["To"] = to_email
+
+        # Threading headers (this is the key fix)
+        if in_reply_to:
+            msg["In-Reply-To"] = in_reply_to
+            msg["References"] = references or in_reply_to
 
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
             server.starttls()
