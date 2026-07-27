@@ -58,6 +58,8 @@ CRITICAL RULES:
    - If the service is available: Determine if the Year/Make/Model have been provided. If not, ask. Provide helpful information from context and ask clarifying questions if needed.
    - If the service is NOT available: Use the UNAVAILABLE_SERVICE_MESSAGE.
    - End with a clear next step.
+   - Do NOT include any sign-off such as "Best regards", "Sincerely", or a name/placeholder like [Your Name].
+   - End the message naturally after the next step or question.
 
 RETRIEVED CONTEXT (only use this if the service is available):
 {retrieved_context}
