@@ -343,7 +343,11 @@ elif st.session_state.current_page == "Conversations":
     with col1:
         if st.button("Fetch New Emails", type="primary", use_container_width=True):
             with st.spinner("Checking inbox and running AI..."):
-                created_ids = process_new_emails(auto_run_ai=True)
+                created_ids = process_new_emails(
+                    auto_run_ai=True,
+                    settings=st.session_state.settings
+                )
+				
                 if created_ids:
                     st.success(f"Created and processed {len(created_ids)} new inquiry(ies).")
                     st.rerun()
