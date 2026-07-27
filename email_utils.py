@@ -238,7 +238,7 @@ def process_new_emails(auto_run_ai: bool = True) -> list[str]:
                 result = process_inquiry(
                     original_text=email_data["body"] or email_data.get("subject", ""),
                     customer_name=email_data.get("from_name"),
-                    settings=None
+                    settings=settings
                 )
 
                 update_data = normalize_ai_fields(result)
