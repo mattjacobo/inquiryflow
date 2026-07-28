@@ -214,7 +214,7 @@ def create_inquiry_from_email(email_data: dict) -> Optional[str]:
 # ============================================================
 from workflow import process_inquiry   # Add this import at the top of the file if not already present
 
-def process_new_emails(auto_run_ai: bool = True) -> list[str]:
+def process_new_emails(auto_run_ai: bool = True, settings: dict = None) -> list[str]:
     """
     Fetches new emails, creates inquiry records, and optionally runs the AI workflow.
     Returns list of created inquiry IDs.
