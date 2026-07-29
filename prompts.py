@@ -97,6 +97,32 @@ Draft the response now.""")
 ])
 
 # ============================================================
+# VEHICLE MODEL VERIFICATION
+# ============================================================
+vehicle_verification_prompt = ChatPromptTemplate.from_messages([
+    ("system", """You are a strict vehicle verification assistant.
+
+Your only job is to determine whether a specific vehicle (Year Make Model) actually existed as a real production vehicle.
+
+Rules:
+- Be conservative. Only say it exists if you are highly confident.
+- Ignore trim levels, packages, or aftermarket modifications unless they change the core model.
+- If the year is outside the known production range, mark it as not existing.
+- If the make or model is misspelled but clearly recognizable, correct it and still evaluate.
+- If information is too vague (e.g. just "Kia" or "2020 truck"), return low confidence.
+
+Return ONLY valid JSON with these exact keys:
+{
+  "vehicle_exists": true/false,
+  "confidence": "high" | "medium" | "low",
+  "normalized_vehicle": "YYYY Make Model" or null,
+  "reason": "short explanation"
+}
+"""),
+    ("human", "Verify this vehicle: {vehicle_text}")
+])
+
+# ============================================================
 # AI COACH PROMPT (Balanced Version)
 # ============================================================
 ai_coach_prompt = ChatPromptTemplate.from_messages([
