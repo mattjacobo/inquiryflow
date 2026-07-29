@@ -241,12 +241,28 @@ def process_new_emails(auto_run_ai: bool = True, settings: dict = None) -> list[
                     settings=settings
                 )
 
+                # Normalize constrained fields
                 update_data = normalize_ai_fields(result)
+
+                # Preserve existing metadata and add vehicle verification
+                existing_metadata = {
+                    "subject": email_data.get("subject"),
+                    "message_id": email_data.get("message_id"),
+                    "received_at": email_data.get("received_at"),
+                }
+
+                vehicle_verification = result.get("vehicle_verification")
+                if vehicle_verification:
+                    existing_metadata["vehicle_verification"] = vehicle_verification
+
+                update_data["metadata"] = existing_metadata
+
+                # Clean out None values
                 update_data = {k: v for k, v in update_data.items() if v is not None}
 
                 supabase.table("inquiries").update(update_data).eq("id", inquiry_id).execute()
                 print(f"AI processing completed for inquiry {inquiry_id}")
-
+            
             except Exception as e:
                 print(f"AI processing failed for inquiry {inquiry_id}: {e}")
                 raise
