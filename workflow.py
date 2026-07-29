@@ -50,17 +50,27 @@ def retrieve_context_node(state: InquiryState) -> dict:
     return {"retrieved_context": context}
 
 
-def draft_node(state: InquiryState, settings: dict = None, vehicle_verification: dict = None) -> dict:
+def draft_node(
+    state: InquiryState,
+    settings: dict = None,
+    vehicle_verification: dict = None
+) -> dict:
+    """
+    Produces the response the customer will see (after human approval).
+    Now respects service availability and vehicle verification.
+    """
     if settings is None:
         settings = {}
     if vehicle_verification is None:
         vehicle_verification = {}
 
+    # Build list of enabled services
     enabled_services = []
     for category, services in settings.get("services", {}).items():
-        for service, enabled in services.items():
-            if enabled:
-                enabled_services.append(service)
+        if isinstance(services, dict):
+            for service, enabled in services.items():
+                if enabled:
+                    enabled_services.append(service)
 
     unavailable_message = settings.get(
         "unavailable_service_message",
@@ -68,13 +78,17 @@ def draft_node(state: InquiryState, settings: dict = None, vehicle_verification:
         "However, I will check with the boss for further confirmation."
     )
 
-    # Build a clear verification note for the prompt
-    if vehicle_verification.get("vehicle_exists") and vehicle_verification.get("confidence") == "high":
+    # Create a clear note about vehicle verification for the prompt
+    if (
+        vehicle_verification.get("vehicle_exists") is True
+        and vehicle_verification.get("confidence") == "high"
+    ):
         vehicle_note = f"Verified vehicle: {vehicle_verification.get('normalized_vehicle')}"
     else:
         vehicle_note = (
             "Vehicle could not be verified with high confidence. "
-            "Be cautious and ask the customer to confirm year, make, and model."
+            "Politely ask the customer to confirm the exact year, make, and model "
+            "before giving specific advice."
         )
 
     chain = drafter_prompt | llm_drafter | StrOutputParser()
