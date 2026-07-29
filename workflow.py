@@ -7,7 +7,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from langgraph.graph import StateGraph, END
 
-from prompts import classifier_prompt, drafter_prompt
+from prompts import classifier_prompt, drafter_prompt, vehicle_verification_prompt
 from rag_utils import retrieve_context
 
 
@@ -133,3 +133,37 @@ def process_inquiry(
     final_state["draft_response"] = draft_result.get("draft_response", "")
 
     return final_state
+
+
+def verify_vehicle(vehicle_text: str) -> dict:
+    """
+    Strict LLM-only check whether a vehicle exists.
+    Returns a normalized result with confidence.
+    """
+    if not vehicle_text or len(vehicle_text.strip()) < 5:
+        return {
+            "vehicle_exists": False,
+            "confidence": "low",
+            "normalized_vehicle": None,
+            "reason": "Insufficient vehicle information provided."
+        }
+
+    try:
+        chain = vehicle_verification_prompt | llm_verifier | JsonOutputParser()
+        result = chain.invoke({"vehicle_text": vehicle_text.strip()})
+
+        # Force safe defaults
+        return {
+            "vehicle_exists": bool(result.get("vehicle_exists", False)),
+            "confidence": result.get("confidence", "low"),
+            "normalized_vehicle": result.get("normalized_vehicle"),
+            "reason": result.get("reason", "")
+        }
+    except Exception as e:
+        print(f"Vehicle verification failed: {e}")
+        return {
+            "vehicle_exists": False,
+            "confidence": "low",
+            "normalized_vehicle": None,
+            "reason": "Verification error"
+        }
