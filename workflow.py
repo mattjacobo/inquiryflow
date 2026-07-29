@@ -93,48 +93,6 @@ def build_workflow():
     workflow.add_edge("retrieve_context", END)
     return workflow.compile()
 
-
-def process_inquiry(
-    original_text: str,
-    customer_name: Optional[str] = None,
-    settings: dict = None
-) -> InquiryState:
-    """
-    High-level entry point used by the dashboard.
-    Accepts settings so the AI can respect service availability.
-    """
-    # Safety check - use defaults if settings are invalid
-    if settings is None or not isinstance(settings.get("services"), dict):
-        from settings_utils import get_default_settings
-        print("Warning: Invalid or missing settings. Using defaults.")
-        settings = get_default_settings()
-
-    app = build_workflow()
-
-    initial_state: InquiryState = {
-        "original_text": original_text,
-        "customer_name": customer_name,
-        "inquiry_id": None,
-        "customer_type": None,
-        "category": None,
-        "urgency": None,
-        "summary": None,
-        "retrieved_context": None,
-        "draft_response": None,
-        "human_edited_draft": None,
-        "status": "pending_review",
-        "reviewed_by": None,
-    }
-
-    final_state = app.invoke(initial_state)
-
-    # Run draft_node manually with validated settings
-    draft_result = draft_node(final_state, settings=settings)
-    final_state["draft_response"] = draft_result.get("draft_response", "")
-
-    return final_state
-
-
 def verify_vehicle(vehicle_text: str) -> dict:
     """
     Strict LLM-only check whether a vehicle exists.
@@ -167,3 +125,59 @@ def verify_vehicle(vehicle_text: str) -> dict:
             "normalized_vehicle": None,
             "reason": "Verification error"
         }
+
+
+def process_inquiry(
+    original_text: str,
+    customer_name: Optional[str] = None,
+    settings: dict = None
+) -> InquiryState:
+    """
+    High-level entry point used by the dashboard and email intake.
+    Vehicle verification runs first as a prerequisite.
+    """
+    # Safety check - use defaults if settings are invalid
+    if settings is None or not isinstance(settings.get("services"), dict):
+        from settings_utils import get_default_settings
+        print("Warning: Invalid or missing settings. Using defaults.")
+        settings = get_default_settings()
+
+    # ============================================
+    # 1. VEHICLE VERIFICATION (prerequisite)
+    # ============================================
+    vehicle_verification = verify_vehicle(original_text)
+
+    # ============================================
+    # 2. Run the rest of the workflow
+    # ============================================
+    app = build_workflow()
+
+    initial_state: InquiryState = {
+        "original_text": original_text,
+        "customer_name": customer_name,
+        "inquiry_id": None,
+        "customer_type": None,
+        "category": None,
+        "urgency": None,
+        "summary": None,
+        "retrieved_context": None,
+        "draft_response": None,
+        "human_edited_draft": None,
+        "status": "pending_review",
+        "reviewed_by": None,
+        "vehicle_verification": vehicle_verification,
+    }
+
+    final_state = app.invoke(initial_state)
+
+    # Run draft_node with settings + verification result
+    draft_result = draft_node(
+        final_state,
+        settings=settings,
+        vehicle_verification=vehicle_verification
+    )
+    final_state["draft_response"] = draft_result.get("draft_response", "")
+    final_state["vehicle_verification"] = vehicle_verification
+
+    return final_state
+
