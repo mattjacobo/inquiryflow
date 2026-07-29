@@ -50,26 +50,32 @@ def retrieve_context_node(state: InquiryState) -> dict:
     return {"retrieved_context": context}
 
 
-def draft_node(state: InquiryState, settings: dict = None) -> dict:
+def draft_node(state: InquiryState, settings: dict = None, vehicle_verification: dict = None) -> dict:
     if settings is None:
         settings = {}
+    if vehicle_verification is None:
+        vehicle_verification = {}
 
     enabled_services = []
-    services_data = settings.get("services", {})
-
-    # Very defensive iteration to prevent crashes from bad data
-    if isinstance(services_data, dict):
-        for category, sub_services in services_data.items():
-            if isinstance(sub_services, dict):
-                for service, enabled in sub_services.items():
-                    if enabled is True:
-                        enabled_services.append(str(service))
+    for category, services in settings.get("services", {}).items():
+        for service, enabled in services.items():
+            if enabled:
+                enabled_services.append(service)
 
     unavailable_message = settings.get(
         "unavailable_service_message",
         "I'm sorry, but it looks like we currently do not offer that service. "
         "However, I will check with the boss for further confirmation."
     )
+
+    # Build a clear verification note for the prompt
+    if vehicle_verification.get("vehicle_exists") and vehicle_verification.get("confidence") == "high":
+        vehicle_note = f"Verified vehicle: {vehicle_verification.get('normalized_vehicle')}"
+    else:
+        vehicle_note = (
+            "Vehicle could not be verified with high confidence. "
+            "Be cautious and ask the customer to confirm year, make, and model."
+        )
 
     chain = drafter_prompt | llm_drafter | StrOutputParser()
 
@@ -78,7 +84,8 @@ def draft_node(state: InquiryState, settings: dict = None) -> dict:
         "summary": state.get("summary", ""),
         "retrieved_context": state.get("retrieved_context", ""),
         "enabled_services": ", ".join(enabled_services) if enabled_services else "None",
-        "unavailable_service_message": unavailable_message
+        "unavailable_service_message": unavailable_message,
+        "vehicle_note": vehicle_note,
     })
 
     return {"draft_response": draft.strip()}
