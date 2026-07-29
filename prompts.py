@@ -111,6 +111,13 @@ Rules:
 - If the make or model is misspelled but clearly recognizable, correct it and still evaluate.
 - If information is too vague (e.g. just "Kia" or "2020 truck"), return low confidence.
 
+VEHICLE VERIFICATION:
+{vehicle_note}
+
+- If the vehicle is verified, you may reference it normally.
+- If the vehicle is NOT verified with high confidence, politely ask the customer to confirm the exact year, make, and model before giving specific advice or pricing.
+- Never invent or assume a vehicle that was not verified.
+
 Return ONLY valid JSON with these exact keys:
 {
   "vehicle_exists": true/false,
