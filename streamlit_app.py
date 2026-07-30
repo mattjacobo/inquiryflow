@@ -563,14 +563,14 @@ elif st.session_state.current_page == "Conversations":
         f"Archived ({len(archived)})"
     ])
 
-    with tab_review:
-        render_horizontal_tiles(awaiting_review, "No inquiries awaiting review.")
+with tab_review:
+    render_horizontal_tiles(awaiting_review, "No inquiries awaiting review.", tab_key="review")
 
-    with tab_response:
-        render_horizontal_tiles(awaiting_response, "No inquiries awaiting customer response.")
+with tab_response:
+    render_horizontal_tiles(awaiting_response, "No inquiries awaiting customer response.", tab_key="response")
 
-    with tab_archived:
-        render_horizontal_tiles(archived, "No archived conversations.")
+with tab_archived:
+    render_horizontal_tiles(archived, "No archived conversations.", tab_key="archived")
 
 
 elif st.session_state.current_page == "Settings":
