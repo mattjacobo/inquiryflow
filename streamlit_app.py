@@ -539,7 +539,7 @@ elif st.session_state.current_page == "Conversations":
                     if st.button("Unarchive", key=f"unarch_{tab_key}_{inquiry_id}", use_container_width=True):
                         if unarchive_inquiry(inquiry_id):
                             st.rerun()
-                    if st.button("Delete Permanently", key=f"del_{tab_key}_{inquiry_id}", use_container_width=
+                    if st.button("Delete Permanently", key=f"del_{tab_key}_{inquiry_id}", use_container_width=)
 
 
 elif st.session_state.current_page == "Settings":
