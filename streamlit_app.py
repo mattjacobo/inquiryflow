@@ -370,18 +370,20 @@ elif st.session_state.current_page == "Conversations":
         elif status == "archived":
             archived.append(inq)
         else:
-            # fallback
             awaiting_review.append(inq)
 
     # ============================================================
-    # HELPER: Build one tile (HTML card)
+    # HELPER: Render one expandable tile
     # ============================================================
-    def build_tile_html(inquiry):
+    def render_inquiry_tile(inquiry):
+        inquiry_id = inquiry.get("id")
+        channel = inquiry.get("channel", "Other")
+        status = inquiry.get("status", "unknown")
+        ai_draft = inquiry.get("ai_draft") or inquiry.get("final_response") or ""
         identifier = inquiry.get("customer_identifier") or inquiry.get("customer_name") or "Unknown"
         category = (inquiry.get("category") or "general").replace("_", " ").title()
-        summary = (inquiry.get("ai_summary") or inquiry.get("summary") or "")[:120]
-        if summary and len(inquiry.get("ai_summary") or inquiry.get("summary") or "") > 120:
-            summary += "..."
+        summary = inquiry.get("ai_summary") or inquiry.get("summary") or "No summary"
+        inquiry_number = inquiry.get("inquiry_number") or ""
 
         # Vehicle verification
         metadata = inquiry.get("metadata") or {}
@@ -397,132 +399,87 @@ elif st.session_state.current_page == "Conversations":
         else:
             vehicle_display = "⚠️ Vehicle not verified"
 
-        inquiry_number = inquiry.get("inquiry_number") or ""
-        created = str(inquiry.get("created_at") or "")[:16]
+        # Compact header for the expander
+        header = f"{identifier}  |  {vehicle_display}  |  {category}"
 
-        return f"""
-        <div style="
-            min-width: 280px;
-            max-width: 300px;
-            background: #1e1e1e;
-            border: 1px solid #333;
-            border-radius: 12px;
-            padding: 16px;
-            margin-right: 16px;
-            display: inline-block;
-            vertical-align: top;
-            color: #eee;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        ">
-            <div style="font-size: 13px; color: #888; margin-bottom: 6px;">{inquiry_number}</div>
-            <div style="font-weight: 600; font-size: 15px; margin-bottom: 8px; word-break: break-all;">{identifier}</div>
-            <div style="font-size: 13px; margin-bottom: 6px;">{vehicle_display}</div>
-            <div style="font-size: 13px; color: #aaa; margin-bottom: 8px;">📂 {category}</div>
-            <div style="font-size: 12px; color: #bbb; line-height: 1.4;">{summary}</div>
-            <div style="font-size: 11px; color: #666; margin-top: 10px;">{created}</div>
-        </div>
-        """
+        with st.expander(header, expanded=False):
+            st.caption(f"{inquiry_number} · {status.replace('_', ' ').title()} · {channel}")
 
-    def render_horizontal_tiles(inquiries, empty_message, tab_key: str):
-        if not inquiries:
-            st.info(empty_message)
-            return
+            # Summary
+            st.markdown("**Summary**")
+            st.write(summary)
 
-        # Build horizontal tiles
-        tiles_html = "".join([build_tile_html(inq) for inq in inquiries])
-        html = f"""
-        <div style="
-            overflow-x: auto;
-            white-space: nowrap;
-            padding: 12px 0 20px 0;
-            -webkit-overflow-scrolling: touch;
-        ">
-            {tiles_html}
-        </div>
-        """
-        st.markdown(html, unsafe_allow_html=True)
+            # Original message
+            st.markdown("**Customer Message**")
+            st.info(inquiry.get("original_text", ""))
 
-        st.markdown("##### Take Action")
+            # AI Draft
+            if ai_draft:
+                st.markdown("**AI Draft**")
+                st.success(ai_draft)
+            else:
+                st.warning("No AI draft available.")
 
-        # Stable options list
-        options = {
-            f"{inq.get('inquiry_number')} — {inq.get('customer_identifier') or 'Unknown'}": inq.get("id")
-            for inq in inquiries
-        }
-        labels = ["— Select a conversation —"] + list(options.keys())
+            # Vehicle detail
+            if v_info:
+                st.caption(
+                    f"Vehicle check → exists: {v_info.get('vehicle_exists')} | "
+                    f"confidence: {v_info.get('confidence')} | "
+                    f"{v_info.get('reason', '')}"
+                )
 
-        selected_label = st.selectbox(
-            "Select a conversation to review / reply",
-            options=labels,
-            key=f"select_{tab_key}"
-        )
+            st.divider()
 
-        # Store selection in session state
-        if selected_label and selected_label != "— Select a conversation —":
-            selected_id = options[selected_label]
-            st.session_state[f"selected_inquiry_{tab_key}"] = selected_id
-        else:
-            st.session_state[f"selected_inquiry_{tab_key}"] = None
+            # ========== ACTIONS (inside the tile) ==========
+            original_message_id = metadata.get("message_id")
+            original_subject = metadata.get("subject") or "Your Inquiry"
 
-        # Render action panel if something is selected
-        selected_id = st.session_state.get(f"selected_inquiry_{tab_key}")
-        if selected_id:
-            # Find the full inquiry object
-            inquiry = next((i for i in inquiries if i.get("id") == selected_id), None)
-            if inquiry:
-                render_inquiry_actions(inquiry)
+            col1, col2 = st.columns(2)
 
-    # ============================================================
-    # ACTION PANEL (re-uses your existing logic)
-    # ============================================================
-    def render_inquiry_actions(inquiry):
-        inquiry_id = inquiry.get("id")
-        channel = inquiry.get("channel", "Other")
-        ai_draft = inquiry.get("ai_draft") or inquiry.get("final_response") or ""
-        status = inquiry.get("status")
+            with col1:
+                if ai_draft and st.button("Send AI Draft", key=f"send_ai_{inquiry_id}", use_container_width=True):
+                    success = False
+                    if channel == "Email":
+                        success = send_email_reply(
+                            to_email=inquiry.get("customer_identifier"),
+                            subject=original_subject,
+                            body=ai_draft,
+                            in_reply_to=original_message_id,
+                            references=original_message_id
+                        )
+                    if success:
+                        add_reply_to_inquiry(inquiry_id, ai_draft, sender="ai")
+                        update_inquiry_status(inquiry_id, "replied")
+                        st.success("AI Draft sent and logged!")
+                        st.rerun()
 
-        metadata = inquiry.get("metadata") or {}
-        original_message_id = metadata.get("message_id")
-        original_subject = metadata.get("subject") or "Your Inquiry"
+            with col2:
+                if status == "archived":
+                    if st.button("Unarchive", key=f"unarchive_{inquiry_id}", use_container_width=True):
+                        if unarchive_inquiry(inquiry_id):
+                            st.success("Restored")
+                            st.rerun()
+                    if st.button("🗑️ Delete Permanently", key=f"hard_del_{inquiry_id}", use_container_width=True):
+                        if delete_inquiry(inquiry_id):
+                            st.success("Deleted")
+                            st.rerun()
+                else:
+                    if st.button("Archive", key=f"archive_{inquiry_id}", use_container_width=True):
+                        if archive_inquiry(inquiry_id):
+                            st.success("Archived")
+                            st.rerun()
 
-        st.markdown("---")
-        st.markdown(f"**Customer Message**")
-        st.info(inquiry.get("original_text", ""))
-
-        if ai_draft:
-            st.markdown("**AI Draft**")
-            st.success(ai_draft)
-        else:
-            st.warning("No AI draft available.")
-
-        # Vehicle verification detail
-        v_info = metadata.get("vehicle_verification") or {}
-        if v_info:
-            st.caption(f"Vehicle check: exists={v_info.get('vehicle_exists')} | confidence={v_info.get('confidence')} | {v_info.get('normalized_vehicle')}")
-
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            if ai_draft and st.button("Send AI Draft", key=f"send_ai_{inquiry_id}", use_container_width=True):
-                success = False
-                if channel == "Email":
-                    success = send_email_reply(
-                        to_email=inquiry.get("customer_identifier"),
-                        subject=original_subject,
-                        body=ai_draft,
-                        in_reply_to=original_message_id,
-                        references=original_message_id
-                    )
-                if success:
-                    add_reply_to_inquiry(inquiry_id, ai_draft, sender="ai")
-                    update_inquiry_status(inquiry_id, "replied")
-                    st.success("AI Draft sent!")
-                    st.rerun()
-
-        with col2:
-            reply_text = st.text_area("Manual reply", key=f"reply_{inquiry_id}", height=80)
+            # Manual reply
+            reply_text = st.text_area(
+                "Manual reply",
+                key=f"reply_{inquiry_id}",
+                placeholder="Type your own reply...",
+                height=90
+            )
             if st.button("Send Manual Reply", key=f"send_manual_{inquiry_id}", use_container_width=True):
-                if reply_text.strip():
+                if not reply_text.strip():
+                    st.warning("Please enter a reply first.")
+                else:
                     success = False
                     if channel == "Email":
                         success = send_email_reply(
@@ -535,23 +492,7 @@ elif st.session_state.current_page == "Conversations":
                     if success:
                         add_reply_to_inquiry(inquiry_id, reply_text.strip(), sender="human")
                         update_inquiry_status(inquiry_id, "replied")
-                        st.success("Reply sent!")
-                        st.rerun()
-
-        with col3:
-            if status == "archived":
-                if st.button("Unarchive", key=f"unarchive_{inquiry_id}", use_container_width=True):
-                    if unarchive_inquiry(inquiry_id):
-                        st.success("Restored")
-                        st.rerun()
-                if st.button("🗑️ Delete Permanently", key=f"hard_del_{inquiry_id}", use_container_width=True):
-                    if delete_inquiry(inquiry_id):
-                        st.success("Deleted")
-                        st.rerun()
-            else:
-                if st.button("Archive", key=f"archive_{inquiry_id}", use_container_width=True):
-                    if archive_inquiry(inquiry_id):
-                        st.success("Archived")
+                        st.success("Manual reply sent and logged!")
                         st.rerun()
 
     # ============================================================
@@ -564,13 +505,25 @@ elif st.session_state.current_page == "Conversations":
     ])
 
     with tab_review:
-        render_horizontal_tiles(awaiting_review, "No inquiries awaiting review.", tab_key="review")
+        if not awaiting_review:
+            st.info("No inquiries awaiting review.")
+        else:
+            for inquiry in awaiting_review:
+                render_inquiry_tile(inquiry)
 
     with tab_response:
-        render_horizontal_tiles(awaiting_response, "No inquiries awaiting customer response.", tab_key="response")
+        if not awaiting_response:
+            st.info("No inquiries awaiting customer response.")
+        else:
+            for inquiry in awaiting_response:
+                render_inquiry_tile(inquiry)
 
     with tab_archived:
-        render_horizontal_tiles(archived, "No archived conversations.", tab_key="archived")
+        if not archived:
+            st.info("No archived conversations.")
+        else:
+            for inquiry in archived:
+                render_inquiry_tile(inquiry)
 
 
 elif st.session_state.current_page == "Settings":
