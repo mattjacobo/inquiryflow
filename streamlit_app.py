@@ -423,13 +423,13 @@ elif st.session_state.current_page == "Conversations":
         </div>
         """
 
-    def render_horizontal_tiles(inquiries, empty_message):
+    def render_horizontal_tiles(inquiries, empty_message, tab_key: str):
         if not inquiries:
             st.info(empty_message)
             return
 
+        # Build horizontal tiles
         tiles_html = "".join([build_tile_html(inq) for inq in inquiries])
-
         html = f"""
         <div style="
             overflow-x: auto;
@@ -442,21 +442,35 @@ elif st.session_state.current_page == "Conversations":
         """
         st.markdown(html, unsafe_allow_html=True)
 
-        # Action area under the carousel (select which tile to act on)
         st.markdown("##### Take Action")
+
+        # Stable options list
         options = {
-            f"{inq.get('inquiry_number')} — {inq.get('customer_identifier') or 'Unknown'}": inq
+            f"{inq.get('inquiry_number')} — {inq.get('customer_identifier') or 'Unknown'}": inq.get("id")
             for inq in inquiries
         }
+        labels = ["— Select a conversation —"] + list(options.keys())
+
         selected_label = st.selectbox(
             "Select a conversation to review / reply",
-            options=["— Select —"] + list(options.keys()),
-            key=f"select_{id(inquiries)}"
+            options=labels,
+            key=f"select_{tab_key}"
         )
 
-        if selected_label and selected_label != "— Select —":
-            inquiry = options[selected_label]
-            render_inquiry_actions(inquiry)
+        # Store selection in session state
+        if selected_label and selected_label != "— Select a conversation —":
+            selected_id = options[selected_label]
+            st.session_state[f"selected_inquiry_{tab_key}"] = selected_id
+        else:
+            st.session_state[f"selected_inquiry_{tab_key}"] = None
+
+        # Render action panel if something is selected
+        selected_id = st.session_state.get(f"selected_inquiry_{tab_key}")
+        if selected_id:
+            # Find the full inquiry object
+            inquiry = next((i for i in inquiries if i.get("id") == selected_id), None)
+            if inquiry:
+                render_inquiry_actions(inquiry)
 
     # ============================================================
     # ACTION PANEL (re-uses your existing logic)
