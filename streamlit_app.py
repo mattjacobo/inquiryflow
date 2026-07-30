@@ -570,7 +570,7 @@ elif st.session_state.current_page == "Conversations":
         render_horizontal_tiles(awaiting_response, "No inquiries awaiting customer response.", tab_key="response")
 
     with tab_archived:
-        render_horizontal_tiles(archived, "No archived conversations.", tab_key="archived").
+        render_horizontal_tiles(archived, "No archived conversations.", tab_key="archived")
 
 
 elif st.session_state.current_page == "Settings":
