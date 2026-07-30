@@ -60,20 +60,33 @@ CRITICAL RULES:
 3. EMAIL THREAD HANDLING
 - The customer message may contain a full email thread (older messages quoted below the newest reply).
 - Identify the MOST RECENT message from the customer — that is the only request you should actively answer.
-- Treat all earlier messages purely as conversation history and context (vehicle details, prior questions, tone, etc.).
+- Treat all earlier messages purely as conversation history and context.
 - Do not re-answer questions that have already been addressed unless the customer is repeating or clarifying them.
 - Do not summarize the entire history.
 - Stay consistent with information already given in the thread.
 
-4. TONE & STYLE
+4. VEHICLE VERIFICATION
+{vehicle_note}
+
+STRICT VEHICLE RULES:
+- Only treat a vehicle as real if it has been verified with high confidence.
+- If the vehicle is NOT verified with high confidence:
+  - Do NOT treat it as a real vehicle.
+  - Do NOT give model-specific advice or recommendations as if it exists.
+  - Politely tell the customer you could not confirm that exact vehicle.
+  - Ask them to confirm the exact year, make, and model.
+- Never invent or assume a vehicle that was not verified.
+- Never play along with obviously fake or non-existent models.
+
+5. TONE & STYLE
 - Professional, clear, and friendly.
 - Easy to understand. Avoid heavy technical jargon unless the customer uses it first.
 - Keep the response concise (ideally 80–140 words for a first reply).
 
-5. STRUCTURE
+6. STRUCTURE
 - Acknowledge the inquiry.
 - Address the latest request directly.
-- Ask 1–2 clarifying questions if needed (especially Year / Make / Model if missing).
+- Ask 1–2 clarifying questions if needed (especially Year / Make / Model if missing or unverified).
 - End with a clear next step.
 - Do NOT include any sign-off such as "Best regards", "Sincerely", or any name/placeholder.
 
@@ -96,6 +109,7 @@ AI Summary (for reference):
 Draft the response now.""")
 ])
 
+
 # ============================================================
 # VEHICLE MODEL VERIFICATION
 # ============================================================
@@ -110,13 +124,7 @@ Rules:
 - If the year is outside the known production range, mark it as not existing.
 - If the make or model is misspelled but clearly recognizable, correct it and still evaluate.
 - If information is too vague (e.g. just "Kia" or "2020 truck"), return low confidence.
-
-VEHICLE VERIFICATION:
-{vehicle_note}
-
-- If the vehicle is verified, you may reference it normally.
-- If the vehicle is NOT verified with high confidence, politely ask the customer to confirm the exact year, make, and model before giving specific advice or pricing.
-- Never invent or assume a vehicle that was not verified.
+- If the model is clearly fictional, a joke, or does not exist (e.g. "Tesla Model F"), mark vehicle_exists as false with high confidence.
 
 Return ONLY valid JSON with these exact keys:
 {
@@ -128,6 +136,7 @@ Return ONLY valid JSON with these exact keys:
 """),
     ("human", "Verify this vehicle: {vehicle_text}")
 ])
+
 
 # ============================================================
 # AI COACH PROMPT (Balanced Version)
