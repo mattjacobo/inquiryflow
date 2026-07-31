@@ -37,6 +37,20 @@ if "settings" not in st.session_state:
     st.session_state.settings = load_settings()
 if "coach_messages" not in st.session_state:
     st.session_state.coach_messages = []
+if "tasks_index" not in st.session_state:
+    st.session_state.tasks_index = 0
+
+# ====================== SIDEBAR ======================
+with st.sidebar:
+    st.markdown("### InquiryFlow")
+    pages = ["Dashboard", "Tasks", "Conversations", "Settings"]
+    st.session_state.current_page = st.radio(
+        "Go to",
+        pages,
+        index=pages.index(st.session_state.current_page) if st.session_state.current_page in pages else 0,
+        label_visibility="collapsed"
+    )
+	
 # ============================================================
 def auto_detect_channel(identifier: str) -> str:
     """Auto-detect channel based on identifier format."""
@@ -190,25 +204,10 @@ st.set_page_config(page_title="InquiryFlow — Phase 1.5", page_icon="🚗", lay
 st.markdown("## InquiryFlow")
 st.caption("AI drafts. You approve.")
 
-# ====================== SIDEBAR NAVIGATION ======================
-with st.sidebar:
-    st.header("Navigation")
 
-    pages = ["Dashboard", "Conversations", "Settings"]
-    st.session_state.current_page = st.radio(
-        "Go to",
-        pages,
-        index=pages.index(st.session_state.current_page),
-        label_visibility="collapsed"
-    )
+# AI Coach LLM==============================================
 
-    st.divider()
-    st.caption("Phase 1.5 • Human-in-the-loop by design • Built for maintainability")
-# ============================================================
-
-# AI Coach LLM
 llm_coach = ChatOpenAI(model="gpt-4o", temperature=0.3)
-
 
 # ====================== MAIN CONTENT ======================
 if st.session_state.current_page == "Dashboard":
