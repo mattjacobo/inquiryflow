@@ -187,8 +187,8 @@ def add_reply_to_inquiry(inquiry_id: str, reply_text: str, sender: str = "human"
 		
 st.set_page_config(page_title="InquiryFlow — Phase 1.5", page_icon="🚗", layout="wide")
 
-st.title("InquiryFlow — Phase 2.0 MVP")
-st.caption("AI drafts. You approve. Customers get fast, professional responses.")
+st.markdown("## InquiryFlow")
+st.caption("AI drafts. You approve.")
 
 # ====================== SIDEBAR NAVIGATION ======================
 with st.sidebar:
