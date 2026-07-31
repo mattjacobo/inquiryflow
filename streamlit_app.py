@@ -294,10 +294,12 @@ elif st.session_state.current_page == "Tasks":
         channel = inquiry.get("channel") or "Other"
         category = (inquiry.get("category") or "general").replace("_", " ").title()
         summary = inquiry.get("ai_summary") or inquiry.get("summary") or "No summary"
-	    ai_draft = inquiry.get("ai_draft") or inquiry.get("final_response") or ""
+        ai_draft = inquiry.get("ai_draft") or inquiry.get("final_response") or ""
         inquiry_id = inquiry.get("id")
 
         metadata = inquiry.get("metadata") or {}
+        quote = metadata.get("quote_snippet") or ""
+
         v_info = metadata.get("vehicle_verification") or {}
         normalized = v_info.get("normalized_vehicle")
         if v_info.get("vehicle_exists") and v_info.get("confidence") == "high" and normalized:
@@ -325,7 +327,7 @@ elif st.session_state.current_page == "Tasks":
         </div>
         """, unsafe_allow_html=True)
 
-		st.markdown("**Summary**")
+        st.markdown("**Summary**")
         st.write(summary)
         if quote:
             st.caption(f'“{quote}”')
