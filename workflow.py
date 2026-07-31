@@ -43,6 +43,21 @@ def classify_node(state: InquiryState) -> dict:
     }
 
 
+import re
+
+def extract_vehicle_candidate(text: str) -> str:
+    """Pull a likely Year Make Model phrase for verification."""
+    if not text:
+        return ""
+    match = re.search(
+        r"\b((?:19|20)\d{2}\s+[A-Za-z][A-Za-z0-9 \-]{1,40})",
+        text
+    )
+    if match:
+        return match.group(1).strip()
+    return text[:500]
+
+
 def retrieve_context_node(state: InquiryState) -> dict:
     query = state.get("summary") or state["original_text"]
     context = retrieve_context(query, k=5)
