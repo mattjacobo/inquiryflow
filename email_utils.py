@@ -86,6 +86,20 @@ def decode_mime_words(s: str) -> str:
             parts.append(content)
     return "".join(parts)
 
+def build_inquiry_text(email_data: dict) -> str:
+    """
+    Structure the email so the AI can separate:
+    - Subject (important context)
+    - Full body / thread (latest reply + quoted history)
+    """
+    subject = email_data.get("subject") or "(No Subject)"
+    body = (email_data.get("body") or "").strip()
+
+    return f"""EMAIL SUBJECT: {subject}
+
+EMAIL BODY (may include quoted thread history):
+{body}
+"""
 
 # ============================================================
 # 1. Fetch new (unread) emails
@@ -188,7 +202,7 @@ def create_inquiry_from_email(email_data: dict) -> Optional[str]:
             "customer_identifier": email_data["from_email"],
             "customer_name": email_data.get("from_name"),
             "channel": "Email",
-            "original_text": email_data["body"] or email_data.get("subject", ""),
+            "original_text": build_inquiry_text(email_data),
             "status": "pending_review",
             "metadata": {
                 "subject": email_data.get("subject"),
@@ -236,7 +250,7 @@ def process_new_emails(auto_run_ai: bool = True, settings: dict = None) -> list[
         if auto_run_ai:
             try:
                 result = process_inquiry(
-                    original_text=email_data["body"] or email_data.get("subject", ""),
+                    original_text=build_inquiry_text(email_data),
                     customer_name=email_data.get("from_name"),
                     settings=settings
                 )
