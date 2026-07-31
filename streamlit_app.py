@@ -330,25 +330,26 @@ if st.session_state.current_page == "Dashboard":
             st.caption("All actions are logged. In production this writes to Supabase.")
 
 elif st.session_state.current_page == "Conversations":
-    st.subheader("📋 Conversations")
+    # Compact header
+    st.markdown("### Conversations")
+    st.caption("Review and respond to customer inquiries")
 
     # ============================================================
-    # EMAIL INTAKE
+    # EMAIL INTAKE (always visible, no dropdown)
     # ============================================================
     from email_utils import process_new_emails, send_email_reply
 
-    with st.expander("📥 Email Intake", expanded=False):
-        if st.button("Fetch New Emails", type="primary"):
-            with st.spinner("Checking inbox and running AI..."):
-                created_ids = process_new_emails(
-                    auto_run_ai=True,
-                    settings=st.session_state.settings
-                )
-                if created_ids:
-                    st.success(f"Created and processed {len(created_ids)} new inquiry(ies).")
-                    st.rerun()
-                else:
-                    st.info("No new unread emails found.")
+    if st.button("📥 Fetch New Emails", type="primary", use_container_width=True):
+        with st.spinner("Checking inbox and running AI..."):
+            created_ids = process_new_emails(
+                auto_run_ai=True,
+                settings=st.session_state.settings
+            )
+            if created_ids:
+                st.success(f"Created and processed {len(created_ids)} new inquiry(ies).")
+                st.rerun()
+            else:
+                st.info("No new unread emails found.")
 
     st.divider()
 
