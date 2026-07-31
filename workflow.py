@@ -167,7 +167,7 @@ def verify_vehicle(vehicle_text: str) -> dict:
 def process_inquiry(
     original_text: str,
     customer_name: Optional[str] = None,
-    settings: dict = None
+    settings: dict = None,
     candidate = extract_vehicle_candidate(original_text)
     vehicle_verification = verify_vehicle(candidate)
 ) -> InquiryState:
