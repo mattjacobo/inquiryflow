@@ -539,7 +539,31 @@ elif st.session_state.current_page == "Conversations":
                     if st.button("Unarchive", key=f"unarch_{tab_key}_{inquiry_id}", use_container_width=True):
                         if unarchive_inquiry(inquiry_id):
                             st.rerun()
-                    if st.button("Delete Permanently", key=f"del_{tab_key}_{inquiry_id}", use_container_width=)
+                    if st.button("Delete Permanently", key=f"del_{tab_key}_{inquiry_id}", use_container_width=True):
+                        if delete_inquiry(inquiry_id):
+                            st.rerun()
+                else:
+                    if st.button("Archive", key=f"arch_{tab_key}_{inquiry_id}", use_container_width=True):
+                        if archive_inquiry(inquiry_id):
+                            st.rerun()
+
+    # ============================================================
+    # TABS
+    # ============================================================
+    tab1, tab2, tab3 = st.tabs([
+        f"Awaiting Review ({len(awaiting_review)})",
+        f"Awaiting Response ({len(awaiting_response)})",
+        f"Archived ({len(archived)})"
+    ])
+
+    with tab1:
+        render_task_section(awaiting_review, "No tasks awaiting review.", "review")
+
+    with tab2:
+        render_task_section(awaiting_response, "No tasks awaiting response.", "response")
+
+    with tab3:
+        render_task_section(archived, "No archived conversations.", "archived")
 
 
 elif st.session_state.current_page == "Settings":
