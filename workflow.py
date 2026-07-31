@@ -170,7 +170,10 @@ def process_inquiry(
     settings: dict = None,
     candidate = extract_vehicle_candidate(original_text)
     vehicle_verification = verify_vehicle(candidate)
-) -> InquiryState:
+
+    )
+
+    InquiryState:
     """
     High-level entry point used by the dashboard and email intake.
     Vehicle verification runs first as a prerequisite.
