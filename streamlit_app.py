@@ -294,7 +294,7 @@ elif st.session_state.current_page == "Tasks":
         channel = inquiry.get("channel") or "Other"
         category = (inquiry.get("category") or "general").replace("_", " ").title()
         summary = inquiry.get("ai_summary") or inquiry.get("summary") or "No summary"
-        ai_draft = inquiry.get("ai_draft") or inquiry.get("final_response") or ""
+	    ai_draft = inquiry.get("ai_draft") or inquiry.get("final_response") or ""
         inquiry_id = inquiry.get("id")
 
         metadata = inquiry.get("metadata") or {}
