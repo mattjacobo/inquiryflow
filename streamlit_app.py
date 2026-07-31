@@ -325,6 +325,11 @@ elif st.session_state.current_page == "Tasks":
         </div>
         """, unsafe_allow_html=True)
 
+		st.markdown("**Summary**")
+        st.write(summary)
+        if quote:
+            st.caption(f'“{quote}”')
+
         st.markdown("**AI Draft**")
         st.success(ai_draft)
 
