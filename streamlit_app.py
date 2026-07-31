@@ -211,122 +211,42 @@ llm_coach = ChatOpenAI(model="gpt-4o", temperature=0.3)
 
 # ====================== MAIN CONTENT ======================
 if st.session_state.current_page == "Dashboard":
-    # ------------------ DASHBOARD ------------------
-    st.subheader("1. New Inquiry")
-	
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        inquiry_text = st.text_area(
-            "Paste customer inquiry here",
-            value=st.session_state.get("sample_inquiry", ""),
-            height=150,
-            placeholder="Paste the DM, email, or form submission..."
-        )
-    with col2:
-        customer_name = st.text_input("Customer name (optional display name)", value="")
-        
-        customer_identifier = st.text_input(
-            "Customer Identifier * (phone/email/social handle)",
-            value="",
-            placeholder="e.g. +15551234567 or john@email.com"
-        )
-        
-        process_btn = st.button("Process Inquiry →", type="primary", use_container_width=True)
+    st.markdown("### Dashboard")
 
-    # Processing + Results
-    if process_btn and inquiry_text.strip():
-        if not customer_identifier.strip():
-            st.error("Customer Identifier is required.")
-        else:
-            channel = auto_detect_channel(customer_identifier)
-            
-            with st.spinner("Analyzing inquiry and drafting response..."):
-                result: InquiryState = process_inquiry(
-                    original_text=inquiry_text.strip(),
-                    customer_name=customer_name.strip() or None,
-                    settings=st.session_state.settings
-                )
-                st.session_state.current_result = result
-                st.session_state.sample_inquiry = ""
+    past = load_past_inquiries(limit=200)
 
-            st.info(f"Detected Channel: **{channel}**")
+    awaiting_review = [i for i in past if (i.get("status") or "").lower() == "pending_review"]
+    awaiting_response = [i for i in past if (i.get("status") or "").lower() in ["replied", "sent"]]
+    needs_manual = [i for i in past if (i.get("status") or "").lower() == "needs_manual"]
 
-    if "current_result" in st.session_state:
-        result = st.session_state.current_result
+    # Simple "today" count for replied (best-effort)
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).date()
+    auto_replied_today = 0
+    for i in past:
+        if (i.get("status") or "").lower() in ["replied", "sent"]:
+            created = str(i.get("created_at") or "")
+            if created[:10] == str(today):
+                auto_replied_today += 1
 
-        st.divider()
-        st.subheader("AI Analysis & Draft")
+    # Weather-report status line
+    if len(awaiting_review) == 0 and len(needs_manual) == 0:
+        headline = "No urgent tasks today"
+    elif len(awaiting_review) > 0:
+        headline = f"{len(awaiting_review)} need review"
+    else:
+        headline = f"{len(needs_manual)} need manual attention"
 
-        # Metrics (keep your existing metrics code)
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Customer Type", result.get("customer_type", "—").title())
-        with col2:
-            st.metric("Category", result.get("category", "—").replace("_", " ").title())
-        with col3:
-            urgency = result.get("urgency", "medium").lower()
-            emoji = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(urgency, "⚪")
-            st.metric("Urgency", f"{emoji} {urgency.title()}")
-        with col4:
-            st.metric("Status", result.get("status", "pending_review").replace("_", " ").title())
+    st.markdown(f"## {headline}")
+    st.caption("Daily snapshot")
 
-        st.divider()
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Awaiting Review", len(awaiting_review))
+    c2.metric("Awaiting Response", len(awaiting_response))
+    c3.metric("Auto-replied today", auto_replied_today)
 
-        left, right = st.columns([1, 1.2])
-        with left:
-            st.markdown("**AI Summary**")
-            st.info(result.get("summary", "No summary generated."))
-            with st.expander("🔍 View Retrieved Context"):
-                st.text(result.get("retrieved_context", "No context retrieved."))
-
-        with right:
-            st.markdown("**Draft Response** (edit before approving)")
-            current_draft = result.get("draft_response", "")
-            edited_draft = st.text_area(
-                "Editable draft",
-                value=current_draft,
-                height=200,
-                key="draft_editor"
-            )
-            if edited_draft != current_draft:
-                st.session_state.current_result["human_edited_draft"] = edited_draft
-
-        st.divider()
-
-        b1, b2, b3 = st.columns([1.2, 1.2, 2])
-        with b1:
-            if st.button("✅ Approve & Log", type="primary", use_container_width=True):
-                final_text = st.session_state.get("draft_editor", edited_draft)
-        
-                channel = auto_detect_channel(customer_identifier)
-        
-                save_inquiry(
-                    original_text=result.get("original_text", ""),
-                    customer_name=result.get("customer_name"),
-                    customer_identifier=customer_identifier.strip() or None,
-                    channel=channel,
-                    summary=result.get("summary", ""),
-                    ai_draft=final_text,
-                    final_response=final_text,
-                    status="approved"
-                )
-        
-                st.success("Response approved and logged.")
-                st.balloons()
-
-                with st.expander("What will be sent to customer"):
-                    st.code(final_text)
-        
-                if st.button("Process Another Inquiry"):
-                    del st.session_state.current_result
-                    st.rerun()
-            
-        with b2:
-            if st.button("Request More Info", use_container_width=True):
-                st.info("Follow-up workflow (Phase 2)")
-
-        with b3:
-            st.caption("All actions are logged. In production this writes to Supabase.")
+    if needs_manual:
+        st.info(f"{len(needs_manual)} conversation(s) marked for manual review in Conversations.")
 
 elif st.session_state.current_page == "Conversations":
     # Compact header
