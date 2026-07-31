@@ -459,14 +459,9 @@ elif st.session_state.current_page == "Conversations":
             original_message_id = metadata.get("message_id")
             original_subject = metadata.get("subject") or "Your Inquiry"
 
-            st.markdown("**Customer Message**")
-            st.info(inquiry.get("original_text") or "")
-
+            # ========== TOP ACTIONS (minimize scrolling) ==========
             if ai_draft:
-                st.markdown("**AI Draft**")
-                st.success(ai_draft)
-
-                if st.button("Send AI Draft", key=f"send_ai_{tab_key}_{inquiry_id}", type="primary", use_container_width=True):
+                if st.button("Send AI Draft", key=f"send_ai_top_{tab_key}_{inquiry_id}", type="primary", use_container_width=True):
                     success = False
                     if channel == "Email":
                         success = send_email_reply(
@@ -479,15 +474,45 @@ elif st.session_state.current_page == "Conversations":
                     if success:
                         add_reply_to_inquiry(inquiry_id, ai_draft, sender="ai")
                         update_inquiry_status(inquiry_id, "replied")
-                        # Auto-advance
                         if idx < total - 1:
                             st.session_state[index_key] = idx + 1
                         st.success("Sent. Moving to next task.")
                         st.rerun()
+
+            st.markdown("---")
+
+            # ========== CONTEXT ==========
+            st.markdown("**Customer Message**")
+            st.info(inquiry.get("original_text") or "")
+
+            if ai_draft:
+                st.markdown("**AI Draft**")
+                st.success(ai_draft)
             else:
                 st.warning("No AI draft available.")
 
             st.markdown("---")
+
+            # ========== BOTTOM ACTIONS ==========
+            if ai_draft:
+                if st.button("Send AI Draft", key=f"send_ai_bottom_{tab_key}_{inquiry_id}", type="primary", use_container_width=True):
+                    success = False
+                    if channel == "Email":
+                        success = send_email_reply(
+                            to_email=inquiry.get("customer_identifier"),
+                            subject=original_subject,
+                            body=ai_draft,
+                            in_reply_to=original_message_id,
+                            references=original_message_id
+                        )
+                    if success:
+                        add_reply_to_inquiry(inquiry_id, ai_draft, sender="ai")
+                        update_inquiry_status(inquiry_id, "replied")
+                        if idx < total - 1:
+                            st.session_state[index_key] = idx + 1
+                        st.success("Sent. Moving to next task.")
+                        st.rerun()
+
             reply_text = st.text_area("Manual reply", key=f"manual_{tab_key}_{inquiry_id}", height=100)
 
             c1, c2 = st.columns(2)
@@ -524,9 +549,7 @@ elif st.session_state.current_page == "Conversations":
                 else:
                     if st.button("Archive", key=f"arch_{tab_key}_{inquiry_id}", use_container_width=True):
                         if archive_inquiry(inquiry_id):
-                            # After archive, stay on same index (list shrinks)
                             st.rerun()
-
     # ============================================================
     # TABS
     # ============================================================
