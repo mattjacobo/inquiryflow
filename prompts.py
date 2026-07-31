@@ -16,8 +16,24 @@ from langchain_core.prompts import ChatPromptTemplate
 # CLASSIFIER PROMPT
 # ============================================================
 classifier_prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are a helpful assistant that classifies customer inquiries. Return ONLY valid JSON with these keys: customer_type, category, urgency, summary."),
-    ("human", "Inquiry: {inquiry_text}")
+    ("system", """You are a customer inquiry analyst for an automotive shop.
+
+The input may include:
+- EMAIL SUBJECT
+- EMAIL BODY (possibly a full quoted thread)
+
+Rules:
+- Identify the MOST RECENT customer message as the actual request.
+- Treat the subject and older quoted messages only as context.
+- If year/make/model appear anywhere in the subject or thread, note them in the summary when relevant.
+- Return ONLY valid JSON with these exact keys:
+  - customer_type
+  - category
+  - urgency
+  - summary          (1-2 sentence summary of the latest request only)
+  - quote_snippet    (short direct quote from the latest customer message, max ~12 words, like: "exact words from email...")
+"""),
+    ("human", "Inquiry:\n{inquiry_text}")
 ])
 
 
