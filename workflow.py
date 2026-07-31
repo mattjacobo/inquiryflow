@@ -37,8 +37,9 @@ def classify_node(state: InquiryState) -> dict:
         "customer_type": result.get("customer_type", "unknown"),
         "category": result.get("category", "other"),
         "urgency": result.get("urgency", "medium"),
-        "summary": result.get("summary", "Unable to summarize."),
-        "status": "pending_review"
+        "summary": result.get("summary", ""),
+        "quote_snippet": result.get("quote_snippet", ""),
+        "status": "pending_review",
     }
 
 
