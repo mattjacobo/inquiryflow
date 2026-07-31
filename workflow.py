@@ -3,6 +3,8 @@ InquiryFlow Phase 1 — LangGraph Workflow
 """
 
 from typing import TypedDict, Optional
+import re
+
 from langchain_openai import ChatOpenAI
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from langgraph.graph import StateGraph, END
@@ -19,15 +21,31 @@ class InquiryState(TypedDict):
     category: Optional[str]
     urgency: Optional[str]
     summary: Optional[str]
+    quote_snippet: Optional[str]
     retrieved_context: Optional[str]
     draft_response: Optional[str]
     human_edited_draft: Optional[str]
     status: str
     reviewed_by: Optional[str]
+    vehicle_verification: Optional[dict]
 
 
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
 llm_drafter = ChatOpenAI(model="gpt-4o", temperature=0.3)
+llm_verifier = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+
+def extract_vehicle_candidate(text: str) -> str:
+    """Pull a likely Year Make Model phrase for verification."""
+    if not text:
+        return ""
+    match = re.search(
+        r"\b((?:19|20)\d{2}\s+[A-Za-z][A-Za-z0-9 \-]{1,40})",
+        text
+    )
+    if match:
+        return match.group(1).strip()
+    return text[:500]
 
 
 def classify_node(state: InquiryState) -> dict:
@@ -41,21 +59,6 @@ def classify_node(state: InquiryState) -> dict:
         "quote_snippet": result.get("quote_snippet", ""),
         "status": "pending_review",
     }
-
-
-import re
-
-def extract_vehicle_candidate(text: str) -> str:
-    """Pull a likely Year Make Model phrase for verification."""
-    if not text:
-        return ""
-    match = re.search(
-        r"\b((?:19|20)\d{2}\s+[A-Za-z][A-Za-z0-9 \-]{1,40})",
-        text
-    )
-    if match:
-        return match.group(1).strip()
-    return text[:500]
 
 
 def retrieve_context_node(state: InquiryState) -> dict:
@@ -73,14 +76,13 @@ def draft_node(
 ) -> dict:
     """
     Produces the response the customer will see (after human approval).
-    Now respects service availability and vehicle verification.
+    Respects service availability and vehicle verification.
     """
     if settings is None:
         settings = {}
     if vehicle_verification is None:
         vehicle_verification = {}
 
-    # Build list of enabled services
     enabled_services = []
     for category, services in settings.get("services", {}).items():
         if isinstance(services, dict):
@@ -94,7 +96,6 @@ def draft_node(
         "However, I will check with the boss for further confirmation."
     )
 
-    # Create a clear note about vehicle verification for the prompt
     if (
         vehicle_verification.get("vehicle_exists") is True
         and vehicle_verification.get("confidence") == "high"
@@ -130,6 +131,7 @@ def build_workflow():
     workflow.add_edge("retrieve_context", END)
     return workflow.compile()
 
+
 def verify_vehicle(vehicle_text: str) -> dict:
     """
     Strict LLM-only check whether a vehicle exists.
@@ -146,8 +148,6 @@ def verify_vehicle(vehicle_text: str) -> dict:
     try:
         chain = vehicle_verification_prompt | llm_verifier | JsonOutputParser()
         result = chain.invoke({"vehicle_text": vehicle_text.strip()})
-
-        # Force safe defaults
         return {
             "vehicle_exists": bool(result.get("vehicle_exists", False)),
             "confidence": result.get("confidence", "low"),
@@ -167,31 +167,22 @@ def verify_vehicle(vehicle_text: str) -> dict:
 def process_inquiry(
     original_text: str,
     customer_name: Optional[str] = None,
-    settings: dict = None,
-    candidate = extract_vehicle_candidate(original_text)
-    vehicle_verification = verify_vehicle(candidate)
-
-    )
-
-    InquiryState:
+    settings: dict = None
+) -> InquiryState:
     """
     High-level entry point used by the dashboard and email intake.
     Vehicle verification runs first as a prerequisite.
     """
-    # Safety check - use defaults if settings are invalid
     if settings is None or not isinstance(settings.get("services"), dict):
         from settings_utils import get_default_settings
         print("Warning: Invalid or missing settings. Using defaults.")
         settings = get_default_settings()
 
-    # ============================================
-    # 1. VEHICLE VERIFICATION (prerequisite)
-    # ============================================
-    vehicle_verification = verify_vehicle(original_text)
+    # 1. Vehicle verification (every incoming message)
+    candidate = extract_vehicle_candidate(original_text)
+    vehicle_verification = verify_vehicle(candidate)
 
-    # ============================================
-    # 2. Run the rest of the workflow
-    # ============================================
+    # 2. Run classify + retrieve
     app = build_workflow()
 
     initial_state: InquiryState = {
@@ -202,6 +193,7 @@ def process_inquiry(
         "category": None,
         "urgency": None,
         "summary": None,
+        "quote_snippet": None,
         "retrieved_context": None,
         "draft_response": None,
         "human_edited_draft": None,
@@ -212,7 +204,7 @@ def process_inquiry(
 
     final_state = app.invoke(initial_state)
 
-    # Run draft_node with settings + verification result
+    # 3. Draft with settings + verification
     draft_result = draft_node(
         final_state,
         settings=settings,
@@ -220,6 +212,6 @@ def process_inquiry(
     )
     final_state["draft_response"] = draft_result.get("draft_response", "")
     final_state["vehicle_verification"] = vehicle_verification
+    final_state["quote_snippet"] = final_state.get("quote_snippet") or ""
 
     return final_state
-
