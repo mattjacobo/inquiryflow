@@ -248,6 +248,117 @@ if st.session_state.current_page == "Dashboard":
     if needs_manual:
         st.info(f"{len(needs_manual)} conversation(s) marked for manual review in Conversations.")
 
+elif st.session_state.current_page == "Tasks":
+    st.markdown("### Tasks")
+
+    from email_utils import process_new_emails, send_email_reply
+
+    # Compact fetch
+    if st.button("📥 Fetch Emails", use_container_width=True):
+        with st.spinner("Checking inbox..."):
+            created_ids = process_new_emails(
+                auto_run_ai=True,
+                settings=st.session_state.settings
+            )
+            if created_ids:
+                st.success(f"+{len(created_ids)} new")
+                st.session_state.tasks_index = 0
+                st.rerun()
+            else:
+                st.caption("No new emails")
+
+    # Queue = pending_review with an AI draft
+    past = load_past_inquiries(limit=100)
+    queue = [
+        i for i in past
+        if (i.get("status") or "").lower() == "pending_review"
+        and (i.get("ai_draft") or i.get("final_response"))
+    ]
+    queue = sorted(queue, key=lambda x: x.get("created_at") or "", reverse=True)
+
+    if not queue:
+        st.success("All auto-replies handled.")
+        st.caption("Nothing waiting in the Tasks queue. Check Conversations for manual items.")
+    else:
+        # Keep index in bounds
+        if st.session_state.tasks_index >= len(queue):
+            st.session_state.tasks_index = 0
+        idx = st.session_state.tasks_index
+        inquiry = queue[idx]
+        total = len(queue)
+
+        st.caption(f"{idx + 1} of {total} remaining")
+
+        # ----- Identifiers -----
+        identifier = inquiry.get("customer_identifier") or inquiry.get("customer_name") or "Unknown"
+        channel = inquiry.get("channel") or "Other"
+        category = (inquiry.get("category") or "general").replace("_", " ").title()
+        summary = inquiry.get("ai_summary") or inquiry.get("summary") or "No summary"
+        ai_draft = inquiry.get("ai_draft") or inquiry.get("final_response") or ""
+        inquiry_id = inquiry.get("id")
+
+        metadata = inquiry.get("metadata") or {}
+        v_info = metadata.get("vehicle_verification") or {}
+        normalized = v_info.get("normalized_vehicle")
+        if v_info.get("vehicle_exists") and v_info.get("confidence") == "high" and normalized:
+            vehicle_line = f"✅ {normalized}"
+        elif normalized:
+            vehicle_line = f"⚠️ {normalized} (unverified)"
+        else:
+            vehicle_line = "⚠️ Vehicle not verified"
+
+        # ----- Flashcard -----
+        st.markdown(f"""
+        <div style="
+            background:#1a1a1a;
+            border:1px solid #333;
+            border-radius:14px;
+            padding:18px;
+            margin:10px 0 16px 0;
+            color:#eee;
+        ">
+            <div style="font-size:12px;color:#888;margin-bottom:6px;">{channel.upper()}</div>
+            <div style="font-weight:600;font-size:16px;margin-bottom:8px;word-break:break-all;">{identifier}</div>
+            <div style="font-size:14px;margin-bottom:6px;">{vehicle_line}</div>
+            <div style="font-size:13px;color:#aaa;margin-bottom:10px;">{category}</div>
+            <div style="font-size:13px;color:#ccc;line-height:1.4;margin-bottom:12px;">{summary}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("**AI Draft**")
+        st.success(ai_draft)
+
+        # ----- Approve / Deny -----
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("Send AI Response", type="primary", use_container_width=True, key=f"approve_{inquiry_id}"):
+                original_message_id = metadata.get("message_id")
+                original_subject = metadata.get("subject") or "Your Inquiry"
+                success = False
+                if channel == "Email":
+                    success = send_email_reply(
+                        to_email=inquiry.get("customer_identifier"),
+                        subject=original_subject,
+                        body=ai_draft,
+                        in_reply_to=original_message_id,
+                        references=original_message_id
+                    )
+                if success:
+                    add_reply_to_inquiry(inquiry_id, ai_draft, sender="ai")
+                    update_inquiry_status(inquiry_id, "replied")
+                    # Advance (same index points to next after list shrinks conceptually)
+                    st.success("Sent.")
+                    st.rerun()
+                else:
+                    st.error("Send failed.")
+
+        with col2:
+            if st.button("Deny AI Response", use_container_width=True, key=f"deny_{inquiry_id}"):
+                update_inquiry_status(inquiry_id, "needs_manual")
+                st.info("Moved to Conversations for manual review.")
+                st.rerun()
+
 elif st.session_state.current_page == "Conversations":
     # Compact header
     st.markdown("### Conversations")
